@@ -33,8 +33,8 @@ pub fn define_architecture() -> Rules {
         .component(Components::Domain).defined_by("./src/domain")
         .component(Components::Infrastructure).defined_by("./src/infrastructure")
         .rules_for(Components::Domain).must_not_depend_on_anything()
-        .rules_for(Components::Application).depends_on(&[Components::Domain])
-        .rules_for(Components::Infrastructure).depends_on(&[Components::Domain, Components::Application])
+        .rules_for(Components::Application).may_depend_on(&[Components::Domain])
+        .rules_for(Components::Infrastructure).may_depend_on(&[Components::Domain, Components::Application])
         .build()
 }
 ```

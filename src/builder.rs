@@ -27,7 +27,7 @@ impl<C> Architecture<C> where C: std::hash::Hash{
         self
     }
 
-    pub fn depends_on(self, _dependencies: &[C]) -> Self {
+    pub fn may_depend_on(self, _dependencies: &[C]) -> Self {
         self
     }
 
