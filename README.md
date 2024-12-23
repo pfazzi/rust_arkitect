@@ -5,19 +5,33 @@
 ## Goal
 
 Provide a tool to:
-- Define components and dependency rules.
-- Validate that the codebase adheres to these rules.
+- Define components and dependency rules
+- Validate that the codebase adheres to these rules
 
-## Example Rules
+## Example
+Given a project with the following structure:
 
-Defining architectural rules:
+```plaintext
+src/
+├── application/
+│   ├── mod.rs
+│   └── service.rs
+├── domain/
+│   ├── mod.rs
+│   └── entity.rs
+├── infrastructure/
+│   ├── mod.rs
+│   └── database.rs
+```
+
+You can define architectural rules:
 
 ```rust
 pub fn define_architecture() -> Rules {
     Architecture::with_components()
-        .component(Components::Application).defined_by("application")
-        .component(Components::Domain).defined_by("domain")
-        .component(Components::Infrastructure).defined_by("infrastructure")
+        .component(Components::Application).defined_by("./src/application")
+        .component(Components::Domain).defined_by("./src/domain")
+        .component(Components::Infrastructure).defined_by("./src/infrastructure")
         .rules_for(Components::Domain).must_not_depend_on_anything()
         .rules_for(Components::Application).depends_on(&[Components::Domain])
         .rules_for(Components::Infrastructure).depends_on(&[Components::Domain, Components::Application])
@@ -25,7 +39,7 @@ pub fn define_architecture() -> Rules {
 }
 ```
 
-Testing the Rules: 
+Then you can validate them:
 ```rust
 #[test]
 fn test_architecture_rules() {
@@ -38,8 +52,8 @@ let architecture = sample_project::dependency_rules::define_architecture();
 ```
 
 ## Project Status
-- Early stage: Only rule structure is implemented.
-- Validation logic for analyzing real Rust code is still under development.
+- Only rule DSL is implemented
+- Validation logic for analyzing real Rust code is still under development
 
 ## Feedback
 
