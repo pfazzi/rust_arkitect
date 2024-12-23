@@ -9,10 +9,10 @@ enum Components {
 }
 
 pub fn define_architecture() -> Rules {
-    Architecture::with_components()
-        .component(Components::Application).defined_by("./src/application.rs")
-        .component(Components::Domain).defined_by("domain")
-        .component(Components::Infrastructure).defined_by("infrastructure")
+    Architecture::define()
+        .component(Components::Application).defined_by("./application.rs")
+        .component(Components::Domain).defined_by("./domain.rs")
+        .component(Components::Infrastructure).defined_by("./infrastructure.rs")
 
         .rules_for(Components::Domain).must_not_depend_on_anything()
         .rules_for(Components::Application).may_depend_on(&[Components::Domain])

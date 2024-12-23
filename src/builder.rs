@@ -5,7 +5,7 @@ pub struct Architecture<C> {
 }
 
 impl<C> Architecture<C> where C: std::hash::Hash{
-    pub fn with_components() -> Self {
+    pub fn define() -> Self {
         Self {
             _marker: std::marker::PhantomData,
         }
