@@ -1,17 +1,14 @@
 use crate::validation::Rules;
 
-pub struct Architecture<C> {
-    _marker: std::marker::PhantomData<C>,
+pub struct Architecture {
 }
 
-impl<C> Architecture<C> where C: std::hash::Hash{
+impl Architecture {
     pub fn define() -> Self {
-        Self {
-            _marker: std::marker::PhantomData,
-        }
+        Self {}
     }
 
-    pub fn component(self, _component: C) -> Self {
+    pub fn component(self, _component: &str) -> Self {
         self
     }
 
@@ -19,7 +16,7 @@ impl<C> Architecture<C> where C: std::hash::Hash{
         self
     }
 
-    pub fn rules_for(self, _component: C) -> Self {
+    pub fn rules_for(self, _component: &str) -> Self {
         self
     }
 
@@ -27,7 +24,7 @@ impl<C> Architecture<C> where C: std::hash::Hash{
         self
     }
 
-    pub fn may_depend_on(self, _dependencies: &[C]) -> Self {
+    pub fn may_depend_on(self, _dependencies: &[&str]) -> Self {
         self
     }
 
