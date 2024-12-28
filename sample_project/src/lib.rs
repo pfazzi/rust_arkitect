@@ -1,3 +1,4 @@
+mod architecture_rules_test;
 mod conversion;
 mod policy_management;
 

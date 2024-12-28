@@ -1,18 +1,30 @@
 use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
 use ansi_term::Color::RGB;
 use ansi_term::Style;
-use log::info;
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 
 pub struct Project {
-    path: String,
+    absolute_path: String,
 }
 
 impl Project {
-    pub fn load(path: &str) -> Project {
+    pub fn located_at(current_file: &str, relative_path: &str) -> Project {
+        let current_dir = Path::new(current_file)
+            .parent()
+            .expect("Failed to get parent directory");
+
+        let absolute_path = current_dir.join(relative_path).canonicalize().unwrap_or_else(|e| {
+            panic!(
+                "Failed to resolve absolute path for {} and {}: {}",
+                current_file, relative_path, e
+            )
+        });
+
         Project {
-            path: path.to_string(),
+            absolute_path: absolute_path.to_str().expect("Failed to convert path to string").to_string(),
         }
     }
 }
@@ -116,7 +128,7 @@ impl ArchitecturalRules {
 fn run(project: &Project, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
     let mut violations = vec![];
 
-    validate_dir(project.path.as_str(), &rules, &mut violations);
+    validate_dir(project.absolute_path.as_str(), &rules, &mut violations);
 
     if violations.is_empty() {
         return Ok(());
@@ -129,19 +141,25 @@ fn apply_rules(file: std::path::PathBuf, rules: &[Box<dyn Rule>], violations: &m
     let file_name = file.to_str().unwrap();
     let bold = Style::new().bold().fg(RGB(0, 255, 0));
     let red = Style::new().fg(RGB(255, 0, 0));
-    info!("\n🛠️Applying rules to {}", bold.paint(file_name));
+    let absolute_file_name = file
+        .canonicalize()
+        .ok()
+        .and_then(|p| p.to_str().map(String::from))
+        .unwrap_or_else(|| "Unknown file".to_string());
+
+    info!("🛠️Applying rules to {}", bold.paint(absolute_file_name));
     for rule in rules {
         if rule.is_applicable(file_name) {
-            info!("🟢 Rule {} applied", rule);
+            debug!("🟢 Rule {} applied", rule);
             match rule.apply(file_name) {
                 Ok(_) => info!("\u{2705} Rule {} respected", rule),
                 Err(e) => {
-                    info!("🟥 Rule {} violated: {}", rule, red.paint(e.clone()));
+                    error!("🟥 Rule {} violated: {}", rule, red.paint(e.clone()));
                     violations.push(e)
                 }
             }
         } else {
-            info!("❌ Rule {} not applied", rule);
+            debug!("❌ Rule {} not applied", rule);
         }
     }
 }

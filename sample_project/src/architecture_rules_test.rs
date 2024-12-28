@@ -20,7 +20,7 @@ fn test_vertical_slices_architecture_rules() {
 
         .finalize();
 
-    let project = Project::load("./../rust_arkitect/sample_project/src");
+    let project = Project::located_at(file!(), "./../src");
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -31,7 +31,7 @@ fn test_vertical_slices_architecture_rules() {
 fn test_mvc_architecture_rules() {
     Arkitect::init_logger();
 
-    let project = Project::load("./../rust_arkitect/sample_project/src");
+    let project = Project::located_at(file!(), "./../src");
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -57,7 +57,7 @@ fn test_mvc_architecture_rules() {
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project = Project::load("./../rust_arkitect/sample_project/src");
+    let project = Project::located_at(file!(), "./../src");
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
