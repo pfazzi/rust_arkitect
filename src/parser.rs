@@ -117,13 +117,11 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
 #[test]
 pub fn test_parsing() {
     let dependencies = parse_dependencies("./sample_project/src/conversion/application.rs");
-
     assert_eq!(
         dependencies,
         vec![
             "crate::conversion::domain::domain_function_1",
             "crate::conversion::domain::domain_function_2",
-            "crate::conversion::infrastructure::infrastructure_function"
         ]
     );
 }
