@@ -1,5 +1,4 @@
 pub mod arkitect;
-pub mod builder;
-pub mod parser;
+pub mod dependency_parsing;
 pub mod utils;
-pub mod validation;
+pub mod rules;

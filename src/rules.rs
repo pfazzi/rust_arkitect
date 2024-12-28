@@ -1,4 +1,4 @@
-use crate::parser::{get_module, parse_dependencies};
+use crate::dependency_parsing::{get_module, parse_dependencies};
 use ansi_term::Style;
 use std::fmt::{Display, Formatter};
 
@@ -103,7 +103,7 @@ impl Rule for MayDependOnRule {
         let green = Style::new().bold().fg(ansi_term::Color::RGB(0, 255, 0));
         let module = get_module(file).unwrap();
         println!(
-            "\tℹ File {} mapped to module {}",
+            "ℹ File {} mapped to module {}",
             green.paint(file),
             orange.paint(module.clone())
         );

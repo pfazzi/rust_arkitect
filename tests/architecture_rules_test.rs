@@ -1,5 +1,4 @@
-use rust_arkitect::arkitect::{Arkitect, Project};
-use rust_arkitect::builder::ArchitecturalRules;
+use rust_arkitect::arkitect::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
