@@ -11,3 +11,4 @@ path = "src/lib.rs"
 sample_project = { path = "./sample_project" }
 syn = { version = "2.0", features = ["full", "visit"] }
 quote = "1.0"
+ansi_term = "0.12"
