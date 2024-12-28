@@ -82,6 +82,51 @@ fn test_architectural_rules() {
 }
 ```
 
+## Logging Support
+
+Rust Arkitect includes logging support to provide detailed information during the validation process. This feature allows you to toggle between verbose and simple output by initializing the logger using Arkitect::init_logger().
+
+### How to Enable Logging
+
+To enable logging, simply call Arkitect::init_logger() at the start of your tests or application. For example:
+```rust
+use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
+
+#[test]
+fn test_logging_in_architecture_rules() {
+    // Initialize logging
+    Arkitect::init_logger();
+
+    let project = Project::load("./../rust_arkitect/sample_project/src");
+
+    let rules = ArchitecturalRules::define()
+        .component("Application")
+            .located_at("crate::application")
+            .may_depend_on(&["Domain"])
+
+        .component("Domain")
+            .located_at("crate::domain")
+            .must_not_depend_on_anything()
+        .finalize();
+
+    let result = Arkitect::ensure_that(project).complies_with(rules);
+
+    assert!(result.is_ok());
+}
+```
+
+### Controlling Verbosity
+
+You can adjust the verbosity of the logging output by setting the RUST_LOG environment variable:
+- Verbose Mode: Shows detailed information, including applied and respected rules:
+```bash
+RUST_LOG=info cargo test -- --nocapture
+```
+Example Output:
+```plaintext
+WARN  rust_arkitect > ❌ Rule violated: crate::application may depend on [crate::domain]
+```
+
 ## Project Status
 
 - **Implemented**:

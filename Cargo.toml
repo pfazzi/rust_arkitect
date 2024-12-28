@@ -8,7 +8,8 @@ name = "rust_arkitect"
 path = "src/lib.rs"
 
 [dependencies]
-sample_project = { path = "./sample_project" }
 syn = { version = "2.0", features = ["full", "visit"] }
 quote = "1.0"
 ansi_term = "0.12"
+env_logger = "0.11"
+log = "0.4.22"

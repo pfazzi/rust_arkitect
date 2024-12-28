@@ -1,5 +1,6 @@
 use crate::dependency_parsing::{get_module, parse_dependencies};
 use ansi_term::Style;
+use log::info;
 use std::fmt::{Display, Formatter};
 
 pub trait Rule: Display {
@@ -102,7 +103,7 @@ impl Rule for MayDependOnRule {
         let orange = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         let green = Style::new().bold().fg(ansi_term::Color::RGB(0, 255, 0));
         let module = get_module(file).unwrap();
-        println!(
+        info!(
             "ℹ File {} mapped to module {}",
             green.paint(file),
             orange.paint(module.clone())

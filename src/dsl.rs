@@ -1,9 +1,9 @@
+use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
 use ansi_term::Color::RGB;
 use ansi_term::Style;
-use std::fs;
-use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
+use log::info;
 use std::collections::HashMap;
-
+use std::fs;
 
 pub struct Project {
     path: String,
@@ -22,6 +22,10 @@ pub struct Arkitect {
 }
 
 impl Arkitect {
+    pub fn init_logger() {
+        let _ = env_logger::builder().is_test(false).try_init();
+    }
+
     pub fn complies_with(&mut self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
         run(&self.project, rules)
     }
@@ -125,19 +129,19 @@ fn apply_rules(file: std::path::PathBuf, rules: &[Box<dyn Rule>], violations: &m
     let file_name = file.to_str().unwrap();
     let bold = Style::new().bold().fg(RGB(0, 255, 0));
     let red = Style::new().fg(RGB(255, 0, 0));
-    println!("\n🛠️Applying rules to {}", bold.paint(file_name));
+    info!("\n🛠️Applying rules to {}", bold.paint(file_name));
     for rule in rules {
         if rule.is_applicable(file_name) {
-            println!("🟢 Rule {} applied", rule);
+            info!("🟢 Rule {} applied", rule);
             match rule.apply(file_name) {
-                Ok(_) => println!("\u{2705} Rule {} respected", rule),
+                Ok(_) => info!("\u{2705} Rule {} respected", rule),
                 Err(e) => {
-                    println!("🟥 Rule {} violated: {}", rule, red.paint(e.clone()));
+                    info!("🟥 Rule {} violated: {}", rule, red.paint(e.clone()));
                     violations.push(e)
                 }
             }
         } else {
-            println!("❌ Rule {} not applied", rule);
+            info!("❌ Rule {} not applied", rule);
         }
     }
 }

@@ -2,6 +2,8 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
+    Arkitect::init_logger();
+
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .component("Conversion")
@@ -27,6 +29,8 @@ fn test_vertical_slices_architecture_rules() {
 
 #[test]
 fn test_mvc_architecture_rules() {
+    Arkitect::init_logger();
+
     let project = Project::load("./../rust_arkitect/sample_project/src");
 
     #[rustfmt::skip]
@@ -51,6 +55,8 @@ fn test_mvc_architecture_rules() {
 
 #[test]
 fn test_three_tier_architecture() {
+    Arkitect::init_logger();
+
     let project = Project::load("./../rust_arkitect/sample_project/src");
 
     #[rustfmt::skip]
