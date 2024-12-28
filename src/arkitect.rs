@@ -3,33 +3,25 @@ use ansi_term::Color::RGB;
 use ansi_term::Style;
 use std::fs;
 
-pub struct Arkitect {
-    project: Project,
-}
-
-impl Arkitect {
-    pub fn complies_with(&self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
-        let mut violations = vec![];
-
-        validate_dir(self.project.root.as_str(), &rules, &mut violations);
-
-        if violations.is_empty() {
-            return Ok(());
-        }
-
-        Err(violations)
-    }
-}
-
 pub struct Project {
-    root: String,
+    path: String,
 }
 
 impl Project {
     pub fn load(path: &str) -> Project {
         Project {
-            root: path.to_string(),
+            path: path.to_string(),
         }
+    }
+}
+
+pub struct Arkitect {
+    project: Project,
+}
+
+impl Arkitect {
+    pub fn complies_with(&mut self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
+        run(&self.project, rules)
     }
 }
 
@@ -37,6 +29,18 @@ impl Arkitect {
     pub fn ensure_that(project: Project) -> Arkitect {
         Arkitect { project }
     }
+}
+
+fn run(project: &Project, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
+    let mut violations = vec![];
+
+    validate_dir(project.path.as_str(), &rules, &mut violations);
+
+    if violations.is_empty() {
+        return Ok(());
+    }
+
+    Err(violations)
 }
 
 fn apply_rules(file: std::path::PathBuf, rules: &[Box<dyn Rule>], violations: &mut Vec<String>) {
