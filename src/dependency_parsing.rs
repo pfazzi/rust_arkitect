@@ -7,12 +7,12 @@ use syn::{Item, ItemUse, UseTree};
 pub fn parse_dependencies(path: &str) -> Vec<String> {
     let content = match fs::read_to_string(path) {
         Ok(content) => content,
-        Err(e) => panic!("Failed to read file: {}", e),
+        Err(e) => panic!("Failed to read file file://{}: {}", path, e),
     };
 
     let ast = match syn::parse_file(&content) {
         Ok(ast) => ast,
-        Err(e) => panic!("Failed to parse file: {}", e),
+        Err(e) => panic!("Failed to parse file file://{}: {}", path, e),
     };
 
     let mut dependencies = Vec::new();
@@ -59,18 +59,14 @@ fn collect_dependencies_from_tree(tree: &UseTree, dependencies: &mut Vec<String>
             dependencies.push(dep);
         }
         UseTree::Glob(glob) => {
-            panic!(
-                "{} imports (e.g., `{}`) are not supported.",
-                "Glob",
-                glob.to_token_stream().to_string()
-            );
+            let ident = glob.to_token_stream().to_string();
+            let dep = format!("{}{}{}", prefix, "::", ident);
+            dependencies.push(dep);
         }
         UseTree::Rename(rename) => {
-            panic!(
-                "{} imports (e.g., `{}`) are not supported.",
-                "Rename",
-                rename.to_token_stream().to_string()
-            );
+            let ident = rename.ident.to_string();
+            let dep = format!("{}{}{}", prefix, "::", ident);
+            dependencies.push(dep);
         }
     }
 }

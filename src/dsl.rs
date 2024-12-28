@@ -16,10 +16,14 @@ impl Project {
             .parent()
             .expect("Failed to get parent directory");
 
-        let absolute_path = current_dir.join(relative_path).canonicalize().unwrap_or_else(|e| {
+        let derived_path = current_dir.join(relative_path);
+        let absolute_path = derived_path.canonicalize().unwrap_or_else(|e| {
             panic!(
-                "Failed to resolve absolute path for {} and {}: {}",
-                current_file, relative_path, e
+                "Failed to resolve absolute path. Derived path: '{}', from current file: '{}' and relative path: '{}'. Error: {}",
+                derived_path.display(),
+                current_file,
+                relative_path,
+                e
             )
         });
 
@@ -173,7 +177,7 @@ fn validate_dir(dir: &str, rules: &[Box<dyn Rule>], violations: &mut Vec<String>
             Ok(file) => {
                 if file.metadata().unwrap().is_dir() {
                     validate_dir(file.path().to_str().unwrap(), rules, violations);
-                } else {
+                } else if file.path().extension().map_or(false, |ext| ext == "rs") {
                     apply_rules(file.path(), rules, violations);
                 }
             }
