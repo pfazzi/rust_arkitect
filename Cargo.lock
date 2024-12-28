@@ -35,13 +35,8 @@ version = "0.1.0"
 dependencies = [
  "ansi_term",
  "quote",
- "sample_project",
  "syn",
 ]
-
-[[package]]
-name = "sample_project"
-version = "0.1.0"
 
 [[package]]
 name = "syn"
