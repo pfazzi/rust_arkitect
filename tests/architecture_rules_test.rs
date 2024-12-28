@@ -1,65 +1,76 @@
 use rust_arkitect::arkitect::{Arkitect, Project};
-use rust_arkitect::builder::Architecture;
+use rust_arkitect::builder::ArchitecturalRules;
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
-    let rules = Architecture::define()
+    #[rustfmt::skip]
+    let rules = ArchitecturalRules::define()
         .component("Conversion")
-        .defined_as("crate::conversion")
-        .may_depend_on(&["Contracts"])
+            .located_at("crate::conversion")
+            .may_depend_on(&["Contracts"])
+
         .component("PolicyManagement")
-        .defined_as("crate::policy_management")
-        .may_depend_on(&["Contracts"])
+            .located_at("crate::policy_management")
+            .may_depend_on(&["Contracts"])
+
         .component("Contracts")
-        .defined_as("crate::contracts")
-        .must_not_depend_on_anything()
-        .rules();
+            .located_at("crate::contracts")
+            .must_not_depend_on_anything()
 
-    let project = Project::load("/Users/patrickfazzi/Projects/rust_arkitect/sample_project/src");
+        .finalize();
 
-    let result = Arkitect::validate(project).against(rules);
+    let project = Project::load("./../rust_arkitect/sample_project/src");
+
+    let result = Arkitect::ensure_that(project).complies_with(rules);
 
     assert_eq!(result, Ok(()))
 }
 
 #[test]
 fn test_mvc_architecture_rules() {
-    let rules = Architecture::define()
+    let project = Project::load("./../rust_arkitect/sample_project/src");
+
+    #[rustfmt::skip]
+    let rules = ArchitecturalRules::define()
         .component("Model")
-        .defined_as("crate::policy_management::model")
-        .must_not_depend_on_anything()
+            .located_at("crate::policy_management::model")
+            .must_not_depend_on_anything()
+
         .component("Repository")
-        .defined_as("crate::policy_management::repository")
-        .may_depend_on(&["Model"])
+            .located_at("crate::policy_management::repository")
+            .may_depend_on(&["Model"])
+
         .component("Controller")
-        .defined_as("crate::policy_management::controller")
-        .may_depend_on(&["Repository", "Model"])
-        .rules();
+            .located_at("crate::policy_management::controller")
+            .may_depend_on(&["Repository", "Model"])
+        .finalize();
 
-    let project = Project::load("/Users/patrickfazzi/Projects/rust_arkitect/sample_project/src");
-
-    let result = Arkitect::validate(project).against(rules);
+    let result = Arkitect::ensure_that(project).complies_with(rules);
 
     assert_eq!(result, Ok(()))
 }
 
 #[test]
 fn test_three_tier_architecture() {
-    let rules = Architecture::define()
+    let project = Project::load("./../rust_arkitect/sample_project/src");
+
+    #[rustfmt::skip]
+    let rules = ArchitecturalRules::define()
         .component("Application")
-        .defined_as("crate::conversion::application")
-        .may_depend_on(&["Domain"])
+            .located_at("crate::conversion::application")
+            .may_depend_on(&["Domain"])
+
         .component("Domain")
-        .defined_as("crate::conversion::domain")
-        .must_not_depend_on_anything()
+            .located_at("crate::conversion::domain")
+            .must_not_depend_on_anything()
+
         .component("Infrastructure")
-        .defined_as("crate::conversion::infrastructure")
-        .may_depend_on(&["Domain", "Application"])
-        .rules();
+            .located_at("crate::conversion::infrastructure")
+            .may_depend_on(&["Domain", "Application"])
 
-    let project = Project::load("/Users/patrickfazzi/Projects/rust_arkitect/sample_project/src");
+        .finalize();
 
-    let result = Arkitect::validate(project).against(rules);
+    let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert_eq!(result, Ok(()))
+    assert!(result.is_ok());
 }

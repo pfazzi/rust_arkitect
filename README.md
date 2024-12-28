@@ -1,12 +1,40 @@
 # Rust Arkitect - Proof of Concept
 
-**Rust Arkitect** is a Proof of Concept inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects.
+**Rust Arkitect** is a Proof of Concept inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
 
-## Goal
+### Why It Matters
+Architectural rules are essential for maintaining clean, modular, and scalable codebases. Rust Arkitect provides developers with the tools to:
+- Clearly document architectural rules
+- Consistently enforce rules across the codebase, preventing accidental violations
+- Catch architectural issues early with immediate feedback during testing
 
-Provide a tool to:
-- Define components and dependency rules
-- Validate that the codebase adheres to these rules
+By integrating directly with Rust’s testing framework, Rust Arkitect allows teams to ensure their architecture evolves safely as their codebase grows.
+
+### Readable and Expressive
+Rust Arkitect provides a developer-friendly DSL that simplifies defining and enforcing architectural rules.
+The DSL is designed to be as close to plain English as possible, making it easy to understand even for those new to the project. For example:
+```rust
+let project = Project::load("./../rust_arkitect/sample_project/src");
+
+let rules = ArchitecturalRules::define()
+    .component("Domain")
+        .located_at("crate::domain")
+        .must_not_depend_on_anything()
+    .component("Application")
+        .located_at("crate::application")
+        .may_depend_on(&["Domain"])
+    .finalize();
+```
+The DSL mirrors how developers naturally think about architecture, making it both clear and concise.
+
+### Test-Driven Validation
+The DSL integrates seamlessly with Rust’s testing framework, allowing you to assert compliance as part of your test suite:
+
+```rust
+let result = Arkitect::ensure_that(project).complies_with(rules);
+
+assert!(result.is_ok());
+```
 
 ## Example
 Given a project with the following structure:
@@ -18,44 +46,55 @@ src/
 │   └── service.rs
 ├── domain/
 │   ├── mod.rs
+│   ├── service.rs
 │   └── entity.rs
 ├── infrastructure/
 │   ├── mod.rs
+│   ├── auth.rs
 │   └── database.rs
 ```
 
-You can define architectural rules:
-
-```rust
-pub fn define_architecture() -> Rules {
-    Architecture::with_components()
-        .component(Components::Application).defined_by("./src/application")
-        .component(Components::Domain).defined_by("./src/domain")
-        .component(Components::Infrastructure).defined_by("./src/infrastructure")
-        .rules_for(Components::Domain).must_not_depend_on_anything()
-        .rules_for(Components::Application).may_depend_on(&[Components::Domain])
-        .rules_for(Components::Infrastructure).may_depend_on(&[Components::Domain, Components::Application])
-        .build()
-}
-```
-
-Then you can validate them:
+You can define and test architectural rules:
 ```rust
 #[test]
-fn test_architecture_rules() {
-let architecture = sample_project::dependency_rules::define_architecture();
+fn test_architectural_rules() {
+    let project = Project::load("./../rust_arkitect/sample_project/src");
 
-    let result = architecture.validate();
+    #[rustfmt::skip]
+    let rules = ArchitecturalRules::define()
+        .component("Application")
+            .located_at("crate::application")
+            .may_depend_on(&["Domain"])
 
-    assert_eq!(result, Ok(()))
+        .component("Domain")
+            .located_at("crate::domain")
+            .must_not_depend_on_anything()
+
+        .component("Infrastructure")
+            .located_at("crate::infrastructure")
+            .may_depend_on(&["Domain", "Application"])
+
+        .finalize();
+
+    let result = Arkitect::ensure_that(project).complies_with(rules);
+
+    assert!(result.is_ok());
 }
 ```
 
 ## Project Status
-- Only rule DSL is implemented
-- Validation logic for analyzing real Rust code is still under development
+
+- **Implemented**:
+    - DSL for defining architectural rules
+    - Validation logic works on the example project provided in this repository
+
+- **Pending**:
+    - Validation on real-world Rust projects
+    - Support for more complex architectural patterns
+
+This project is in the early stages and serves as a demonstration of the core concept.
 
 ## Feedback
 
-This is a POC, and your feedback is essential!
+Rust Arkitect is an early Proof of Concept, and your feedback is invaluable to its growth.
 If you have ideas, suggestions, or would like to contribute, open an issue or submit a pull request.

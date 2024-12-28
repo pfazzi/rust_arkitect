@@ -1,14 +1,14 @@
 use crate::validation::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
 use std::collections::HashMap;
 
-pub struct Architecture {
+pub struct ArchitecturalRules {
     current_component: String,
     components: HashMap<String, String>,
     rules: Vec<Box<dyn Rule>>,
     may_depend_on_rule: Vec<Box<MayDependOnRule>>,
 }
 
-impl Architecture {
+impl ArchitecturalRules {
     pub fn define() -> Self {
         Self {
             current_component: "".to_string(),
@@ -24,7 +24,7 @@ impl Architecture {
         self
     }
 
-    pub fn defined_as(mut self, module: &str) -> Self {
+    pub fn located_at(mut self, module: &str) -> Self {
         self.components
             .insert(self.current_component.clone(), String::from(module));
 
@@ -56,7 +56,7 @@ impl Architecture {
         self
     }
 
-    pub fn rules(mut self) -> Vec<Box<dyn Rule>> {
+    pub fn finalize(mut self) -> Vec<Box<dyn Rule>> {
         let may_depend_on_rules: Vec<Box<dyn Rule>> = self
             .may_depend_on_rule
             .iter()

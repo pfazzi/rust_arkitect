@@ -8,7 +8,7 @@ pub struct Arkitect {
 }
 
 impl Arkitect {
-    pub fn against(&self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
+    pub fn complies_with(&self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
         let mut violations = vec![];
 
         validate_dir(self.project.root.as_str(), &rules, &mut violations);
@@ -34,7 +34,7 @@ impl Project {
 }
 
 impl Arkitect {
-    pub fn validate(project: Project) -> Arkitect {
+    pub fn ensure_that(project: Project) -> Arkitect {
         Arkitect { project }
     }
 }
