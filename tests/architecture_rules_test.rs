@@ -1,4 +1,4 @@
-use rust_arkitect::arkitect::{ArchitecturalRules, Arkitect, Project};
+use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
