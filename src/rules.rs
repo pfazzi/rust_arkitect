@@ -31,7 +31,7 @@ impl Rule for MustNotDependOnAnythingRule {
         match dependencies.is_empty() {
             true => Ok(()),
             false => Err(format!(
-                "Dependencies are not allowed on anything for \"{}\"",
+                "Dependencies are not allowed on anything for file://{}",
                 file
             )),
         }
