@@ -4,7 +4,6 @@ use ansi_term::Style;
 use log::{debug, error, info};
 use std::collections::HashMap;
 use std::fs;
-use std::ops::Deref;
 use std::path::Path;
 
 pub struct Project {
@@ -14,7 +13,7 @@ pub struct Project {
 impl Project {
     pub fn from_absolute_path(absolute_path: &str) -> Project {
         Project {
-            absolute_path: absolute_path.to_string()
+            absolute_path: absolute_path.to_string(),
         }
     }
 
@@ -63,11 +62,14 @@ impl Arkitect {
     }
 }
 pub struct ArchitecturalRules {
-    current_component: String,
     components: HashMap<String, String>,
     rules: Vec<Box<dyn Rule>>,
+
     may_depend_on_rule: Vec<Box<MayDependOnRule>>,
+
+    current_component: String,
     allowed_external_dependencies: Vec<String>,
+    allowed_dependencies: Vec<String>,
 }
 
 impl ArchitecturalRules {
@@ -89,11 +91,11 @@ impl ArchitecturalRules {
             rules: Vec::new(),
             may_depend_on_rule: Vec::new(),
             allowed_external_dependencies: Vec::new(),
+            allowed_dependencies: Vec::new(),
         }
     }
 
     pub fn component(mut self, component: &str) -> Self {
-        self.current_component = String::from(component);
         self.current_component = String::from(component);
 
         self
@@ -116,19 +118,29 @@ impl ArchitecturalRules {
             allowed_external_dependencies: self.allowed_external_dependencies.clone(),
         }));
 
+        self.reset();
+
         self
     }
 
     pub fn may_depend_on(mut self, dependencies: &[&str]) -> Self {
-        self.may_depend_on_rule.push(Box::new(MayDependOnRule {
+        let rule = MayDependOnRule {
             subject: self
                 .components
                 .get(&self.current_component.clone())
                 .expect("Component must not be empty")
                 .clone(),
-            allowed_dependencies: dependencies.iter().map(|&s| String::from(s)).collect(),
+            allowed_dependencies: dependencies
+                .clone()
+                .iter()
+                .map(|&s| s.to_string())
+                .collect(),
             allowed_external_dependencies: self.allowed_external_dependencies.clone(),
-        }));
+        };
+
+        self.may_depend_on_rule.push(Box::new(rule));
+
+        self.reset();
 
         self
     }
@@ -140,7 +152,7 @@ impl ArchitecturalRules {
             .map(|rule| {
                 Box::new(MayDependOnRule {
                     subject: rule.subject.clone(),
-                    allowed_external_dependencies: self.allowed_external_dependencies.clone(),
+                    allowed_external_dependencies: rule.allowed_external_dependencies.clone(),
                     allowed_dependencies: rule
                         .allowed_dependencies
                         .iter()
@@ -153,6 +165,12 @@ impl ArchitecturalRules {
         self.rules.extend(may_depend_on_rules);
 
         self.rules
+    }
+
+    fn reset(&mut self) {
+        self.current_component = String::new();
+        self.allowed_external_dependencies.clear();
+        self.allowed_dependencies.clear();
     }
 }
 
@@ -171,7 +189,6 @@ fn run(project: &Project, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> 
 fn apply_rules(file: std::path::PathBuf, rules: &[Box<dyn Rule>], violations: &mut Vec<String>) {
     let file_name = file.to_str().unwrap();
     let bold = Style::new().bold().fg(RGB(0, 255, 0));
-    let red = Style::new().fg(RGB(255, 0, 0));
     let absolute_file_name = file
         .canonicalize()
         .ok()
@@ -185,7 +202,7 @@ fn apply_rules(file: std::path::PathBuf, rules: &[Box<dyn Rule>], violations: &m
             match rule.apply(file_name) {
                 Ok(_) => info!("\u{2705} Rule {} respected", rule),
                 Err(e) => {
-                    error!("🟥 Rule {} violated: {}", rule, red.paint(e.clone()));
+                    error!("🟥 Rule {} violated: {}", rule, e.clone().to_lowercase());
                     violations.push(e)
                 }
             }

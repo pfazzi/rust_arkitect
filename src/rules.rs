@@ -1,8 +1,9 @@
 use crate::dependency_parsing::{get_module, parse_dependencies};
+use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::debug;
 use std::fmt::{Display, Formatter};
-use syn::Lit::Str;
+use std::ops::Deref;
 
 pub trait Rule: Display {
     fn apply(&self, file: &str) -> Result<(), String>;
@@ -17,12 +18,19 @@ pub struct MustNotDependOnAnythingRule {
 
 impl Display for MustNotDependOnAnythingRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
-        write!(
-            f,
-            "{} must not depend on any modules",
-            bold.paint(self.subject.clone())
-        )
+        let mut allowed_dependencies: Vec<String> = Vec::new();
+        allowed_dependencies.extend(self.allowed_external_dependencies.clone());
+        if allowed_dependencies.is_empty() {
+            write!(f, "{} may not depend on any modules", self.subject)
+        } else {
+            let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
+            write!(
+                f,
+                "{} may depend on {}",
+                bold.paint(self.subject.clone()),
+                bold.paint("[".to_string() + &allowed_dependencies.join(", ") + "]")
+            )
+        }
     }
 }
 
@@ -33,10 +41,11 @@ impl Rule for MustNotDependOnAnythingRule {
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
             .filter(|&dependency| {
-                !self
-                    .allowed_external_dependencies
-                    .iter()
-                    .any(|allowed| is_child(allowed.to_string(), dependency.clone()))
+                !(is_child(self.subject.clone(), dependency.clone())
+                    || self
+                        .allowed_external_dependencies
+                        .iter()
+                        .any(|allowed| is_child(allowed.to_string(), dependency.clone())))
             })
             .cloned()
             .collect();
@@ -44,8 +53,10 @@ impl Rule for MustNotDependOnAnythingRule {
         if forbidden_dependencies.is_empty() {
             Ok(())
         } else {
+            let red = Style::new().fg(RGB(255, 0, 0)).bold();
             Err(format!(
-                "Dependencies are not allowed on anything for file://{}",
+                "Forbidden dependencies to {} in file://{}",
+                red.paint("[".to_string() + &forbidden_dependencies.join(" ,") + "]"),
                 file
             ))
         }
@@ -70,7 +81,10 @@ pub struct MayDependOnRule {
 
 impl Display for MayDependOnRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.allowed_dependencies.is_empty() {
+        let mut allowed_dependencies: Vec<String> = Vec::new();
+        allowed_dependencies.extend(self.allowed_dependencies.clone());
+        allowed_dependencies.extend(self.allowed_external_dependencies.clone());
+        if allowed_dependencies.is_empty() {
             write!(f, "{} may not depend on any modules", self.subject)
         } else {
             let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
@@ -78,7 +92,7 @@ impl Display for MayDependOnRule {
                 f,
                 "{} may depend on {}",
                 bold.paint(self.subject.clone()),
-                bold.paint("[".to_string() + &self.allowed_dependencies.join(", ") + "]")
+                bold.paint("[".to_string() + &allowed_dependencies.join(", ") + "]")
             )
         }
     }
@@ -95,24 +109,36 @@ impl Rule for MayDependOnRule {
 
         let dependencies = parse_dependencies(file);
 
-        for dependency in dependencies {
-            let is_child_of_subject = is_child(subject.clone(), dependency.clone());
-            if !is_child_of_subject {
-                let allowed: Option<&String> = self
-                    .allowed_dependencies
-                    .iter()
-                    .find(|&ad| is_child(ad.clone(), dependency.clone()));
-                let allowed_external: Option<&String> = self
-                    .allowed_external_dependencies
-                    .iter()
-                    .find(|&ad| is_child(ad.clone(), dependency.clone()));
-                if allowed.is_none() && allowed_external.is_none() {
-                    return Err(String::from(format!(
-                        "dependency not allowed on {} in file file://{}",
-                        dependency, file
-                    )));
+        let forbidden_dependencies: Vec<String> = dependencies
+            .iter()
+            .filter(|&dependency| {
+                let is_child_of_subject = is_child(subject.clone(), dependency.clone());
+                if !is_child_of_subject {
+                    let is_allowed = self
+                        .allowed_dependencies
+                        .iter()
+                        .any(|ad| is_child(ad.clone(), dependency.clone()));
+                    let is_allowed_external = self
+                        .allowed_external_dependencies
+                        .iter()
+                        .any(|ad| is_child(ad.clone(), dependency.clone()));
+                    if !(is_allowed || is_allowed_external) {
+                        return true;
+                    }
                 }
-            }
+
+                false
+            })
+            .cloned()
+            .collect();
+
+        if !forbidden_dependencies.is_empty() {
+            let red = Style::new().fg(RGB(255, 0, 0)).bold();
+            return Err(format!(
+                "Forbidden dependencies to {} in file://{}",
+                red.paint("[".to_string() + &forbidden_dependencies.join(" ,") + "]"),
+                file
+            ));
         }
 
         Ok(())
