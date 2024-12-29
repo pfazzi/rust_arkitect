@@ -2,9 +2,9 @@ use quote::ToTokens;
 use std::fs;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
-use syn::{Item, ItemUse, UseTree};
+use syn::{File, Item, ItemUse, UseTree};
 
-pub fn parse_dependencies(path: &str) -> Vec<String> {
+pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
     let content = match fs::read_to_string(path) {
         Ok(content) => content,
         Err(e) => panic!("Failed to read file file://{}: {}", path, e),
@@ -13,6 +13,23 @@ pub fn parse_dependencies(path: &str) -> Vec<String> {
     let ast = match syn::parse_file(&content) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse file file://{}: {}", path, e),
+    };
+
+    let mut dependencies = Vec::new();
+
+    for item in ast.items.iter() {
+        if let Item::Use(ItemUse { tree, .. }) = item {
+            collect_dependencies_from_tree(tree, &mut dependencies, "".to_string());
+        }
+    }
+
+    dependencies
+}
+
+fn get_dependencies_in_str(s: &str) -> Vec<String> {
+    let ast: File = match syn::parse_str(s.clone()) {
+        Ok(ast) => ast,
+        Err(e) => panic!("Failed to parse string '{}': {}", s, e),
     };
 
     let mut dependencies = Vec::new();
@@ -47,11 +64,9 @@ fn collect_dependencies_from_tree(tree: &UseTree, dependencies: &mut Vec<String>
             }
         }
         UseTree::Group(group) => {
-            for item in group.items.iter() {
-                let ident = item.to_token_stream().to_string();
-                let dep = format!("{}{}{}", prefix, "::", ident);
-                dependencies.push(dep);
-            }
+            group.items.iter().for_each(|item| {
+                collect_dependencies_from_tree(item, dependencies, prefix.clone());
+            });
         }
         UseTree::Name(name) => {
             let ident = name.ident.to_string();
@@ -112,7 +127,7 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
 
 #[test]
 pub fn test_parsing() {
-    let dependencies = parse_dependencies("./sample_project/src/conversion/application.rs");
+    let dependencies = get_dependencies_in_file("./sample_project/src/conversion/application.rs");
     assert_eq!(
         dependencies,
         vec![
@@ -125,9 +140,7 @@ pub fn test_parsing() {
 #[test]
 fn test_file_path() {
     assert_eq!(
-        get_module(
-            "/users/reandom/projects/rust_arkitect/sample_project/src/conversion/application.rs"
-        ),
+        get_module("./sample_project/src/conversion/application.rs"),
         Ok(String::from("crate::conversion::application"))
     );
 
@@ -135,4 +148,68 @@ fn test_file_path() {
         get_module("/users/reandom/projects/rust_arkitect/sample_project/src/conversion"),
         Ok(String::from("crate::conversion"))
     );
+}
+
+#[test]
+fn test_dependencies() {
+    let source = r#"
+        use crate::{
+        application::{
+            container::{self, AcmeContainer},
+            geographic_info::{mock_geographic_info_default, GeographicInfoService},
+        },
+        domain::{
+            aggregate::quote::{FormType, ProductType, QuoteType, QuoteVersion},
+            Policy::{
+                Policy, PolicyActive, PolicyActiveSubstatus, PolicyStatus,
+                PolicySubstatusActive, PaymentMethod,
+            },
+            price::{PaymentFrequency, PriceValue},
+            save::{SavePurchasable, SaveStatus},
+            services::PolicyService,
+            types::UserType,
+        },
+        infrastructure::bridge::{
+            invoicing::{mock_invoicing_service_default, InvoicingService},
+            payment::{mock_payment_bridge, PaymentBridge},
+            s3_service::{mock_s3_service, S3Service},
+            antifraud::{mock_antifraud_service_default, AntifraudService},
+        },
+    };
+    "#;
+
+    let dependencies = get_dependencies_in_str(source);
+
+    let expected_dependencies = vec![
+        "crate::application::container::self".to_string(),
+        "crate::application::container::AcmeContainer".to_string(),
+        "crate::application::geographic_info::mock_geographic_info_default".to_string(),
+        "crate::application::geographic_info::GeographicInfoService".to_string(),
+        "crate::domain::aggregate::quote::FormType".to_string(),
+        "crate::domain::aggregate::quote::ProductType".to_string(),
+        "crate::domain::aggregate::quote::QuoteType".to_string(),
+        "crate::domain::aggregate::quote::QuoteVersion".to_string(),
+        "crate::domain::Policy::Policy".to_string(),
+        "crate::domain::Policy::PolicyActive".to_string(),
+        "crate::domain::Policy::PolicyActiveSubstatus".to_string(),
+        "crate::domain::Policy::PolicyStatus".to_string(),
+        "crate::domain::Policy::PolicySubstatusActive".to_string(),
+        "crate::domain::Policy::PaymentMethod".to_string(),
+        "crate::domain::price::PaymentFrequency".to_string(),
+        "crate::domain::price::PriceValue".to_string(),
+        "crate::domain::save::SavePurchasable".to_string(),
+        "crate::domain::save::SaveStatus".to_string(),
+        "crate::domain::services::PolicyService".to_string(),
+        "crate::domain::types::UserType".to_string(),
+        "crate::infrastructure::bridge::invoicing::mock_invoicing_service_default".to_string(),
+        "crate::infrastructure::bridge::invoicing::InvoicingService".to_string(),
+        "crate::infrastructure::bridge::payment::mock_payment_bridge".to_string(),
+        "crate::infrastructure::bridge::payment::PaymentBridge".to_string(),
+        "crate::infrastructure::bridge::s3_service::mock_s3_service".to_string(),
+        "crate::infrastructure::bridge::s3_service::S3Service".to_string(),
+        "crate::infrastructure::bridge::antifraud::mock_antifraud_service_default".to_string(),
+        "crate::infrastructure::bridge::antifraud::AntifraudService".to_string(),
+    ];
+
+    assert_eq!(expected_dependencies, dependencies);
 }

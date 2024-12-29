@@ -1,4 +1,4 @@
-use crate::dependency_parsing::{get_module, parse_dependencies};
+use crate::dependency_parsing::{get_dependencies_in_file, get_module};
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::debug;
@@ -36,7 +36,7 @@ impl Display for MustNotDependOnAnythingRule {
 
 impl Rule for MustNotDependOnAnythingRule {
     fn apply(&self, file: &str) -> Result<(), String> {
-        let dependencies = parse_dependencies(file);
+        let dependencies = get_dependencies_in_file(file);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
@@ -107,7 +107,7 @@ impl Rule for MayDependOnRule {
             module
         };
 
-        let dependencies = parse_dependencies(file);
+        let dependencies = get_dependencies_in_file(file);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
