@@ -4,6 +4,7 @@ use ansi_term::Style;
 use log::{debug, error, info};
 use std::collections::HashMap;
 use std::fs;
+use std::ops::Deref;
 use std::path::Path;
 
 pub struct Project {
@@ -11,7 +12,13 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn located_at(current_file: &str, relative_path: &str) -> Project {
+    pub fn from_absolute_path(absolute_path: &str) -> Project {
+        Project {
+            absolute_path: absolute_path.to_string()
+        }
+    }
+
+    pub fn from_relative_path(current_file: &str, relative_path: &str) -> Project {
         let current_dir = Path::new(current_file)
             .parent()
             .expect("Failed to get parent directory");
@@ -28,7 +35,10 @@ impl Project {
         });
 
         Project {
-            absolute_path: absolute_path.to_str().expect("Failed to convert path to string").to_string(),
+            absolute_path: absolute_path
+                .to_str()
+                .expect("Failed to convert path to string")
+                .to_string(),
         }
     }
 }
@@ -57,6 +67,18 @@ pub struct ArchitecturalRules {
     components: HashMap<String, String>,
     rules: Vec<Box<dyn Rule>>,
     may_depend_on_rule: Vec<Box<MayDependOnRule>>,
+    allowed_external_dependencies: Vec<String>,
+}
+
+impl ArchitecturalRules {
+    pub(crate) fn allow_external_dependencies(mut self, external_dependencies: &[&str]) -> Self {
+        self.allowed_external_dependencies = external_dependencies
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        self
+    }
 }
 
 impl ArchitecturalRules {
@@ -66,10 +88,12 @@ impl ArchitecturalRules {
             components: HashMap::new(),
             rules: Vec::new(),
             may_depend_on_rule: Vec::new(),
+            allowed_external_dependencies: Vec::new(),
         }
     }
 
     pub fn component(mut self, component: &str) -> Self {
+        self.current_component = String::from(component);
         self.current_component = String::from(component);
 
         self
@@ -89,6 +113,7 @@ impl ArchitecturalRules {
                 .get(&self.current_component.clone())
                 .expect("Component must not be empty")
                 .clone(),
+            allowed_external_dependencies: self.allowed_external_dependencies.clone(),
         }));
 
         self
@@ -102,6 +127,7 @@ impl ArchitecturalRules {
                 .expect("Component must not be empty")
                 .clone(),
             allowed_dependencies: dependencies.iter().map(|&s| String::from(s)).collect(),
+            allowed_external_dependencies: self.allowed_external_dependencies.clone(),
         }));
 
         self
@@ -114,6 +140,7 @@ impl ArchitecturalRules {
             .map(|rule| {
                 Box::new(MayDependOnRule {
                     subject: rule.subject.clone(),
+                    allowed_external_dependencies: self.allowed_external_dependencies.clone(),
                     allowed_dependencies: rule
                         .allowed_dependencies
                         .iter()

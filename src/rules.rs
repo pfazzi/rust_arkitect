@@ -1,7 +1,8 @@
 use crate::dependency_parsing::{get_module, parse_dependencies};
 use ansi_term::Style;
-use log::{debug};
+use log::debug;
 use std::fmt::{Display, Formatter};
+use syn::Lit::Str;
 
 pub trait Rule: Display {
     fn apply(&self, file: &str) -> Result<(), String>;
@@ -10,7 +11,8 @@ pub trait Rule: Display {
 }
 
 pub struct MustNotDependOnAnythingRule {
-    pub subject: String,
+    pub(crate) subject: String,
+    pub(crate) allowed_external_dependencies: Vec<String>,
 }
 
 impl Display for MustNotDependOnAnythingRule {
@@ -28,12 +30,24 @@ impl Rule for MustNotDependOnAnythingRule {
     fn apply(&self, file: &str) -> Result<(), String> {
         let dependencies = parse_dependencies(file);
 
-        match dependencies.is_empty() {
-            true => Ok(()),
-            false => Err(format!(
+        let forbidden_dependencies: Vec<String> = dependencies
+            .iter()
+            .filter(|&dependency| {
+                !self
+                    .allowed_external_dependencies
+                    .iter()
+                    .any(|allowed| is_child(allowed.to_string(), dependency.clone()))
+            })
+            .cloned()
+            .collect();
+
+        if forbidden_dependencies.is_empty() {
+            Ok(())
+        } else {
+            Err(format!(
                 "Dependencies are not allowed on anything for file://{}",
                 file
-            )),
+            ))
         }
     }
 
@@ -51,6 +65,7 @@ fn is_child(module: String, child: String) -> bool {
 pub struct MayDependOnRule {
     pub(crate) subject: String,
     pub(crate) allowed_dependencies: Vec<String>,
+    pub(crate) allowed_external_dependencies: Vec<String>,
 }
 
 impl Display for MayDependOnRule {
@@ -87,7 +102,11 @@ impl Rule for MayDependOnRule {
                     .allowed_dependencies
                     .iter()
                     .find(|&ad| is_child(ad.clone(), dependency.clone()));
-                if allowed.is_none() {
+                let allowed_external: Option<&String> = self
+                    .allowed_external_dependencies
+                    .iter()
+                    .find(|&ad| is_child(ad.clone(), dependency.clone()));
+                if allowed.is_none() && allowed_external.is_none() {
                     return Err(String::from(format!(
                         "dependency not allowed on {} in file file://{}",
                         dependency, file
@@ -117,6 +136,7 @@ fn test_dependency_rule() {
     let rule = MayDependOnRule {
         subject: "policy_management::domain".to_string(),
         allowed_dependencies: vec!["conversion::domain::domain_function_1".to_string()],
+        allowed_external_dependencies: vec!["chrono".to_string()],
     };
 
     let result = rule.apply(

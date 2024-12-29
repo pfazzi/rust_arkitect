@@ -14,7 +14,7 @@ By integrating directly with Rust’s testing framework, Rust Arkitect allows te
 Rust Arkitect provides a developer-friendly DSL that simplifies defining and enforcing architectural rules.
 The DSL is designed to be as close to plain English as possible, making it easy to understand even for those new to the project. For example:
 ```rust
-let project = Project::located_at(file!(), "./../src");
+let project = Project::from_relative_path(file!(), "./../src");
 
 let rules = ArchitecturalRules::define()
     .component("Domain")
@@ -60,7 +60,7 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_architectural_rules() {
-    let project = Project::located_at(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../src");
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -99,7 +99,7 @@ fn test_logging_in_architecture_rules() {
     // Initialize logging
     Arkitect::init_logger();
 
-    let project = Project::located_at(file!(),"./../src");
+    let project = Project::from_relative_path(file!(),"./../src");
 
     let rules = ArchitecturalRules::define()
         .component("Application")
