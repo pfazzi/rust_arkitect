@@ -56,7 +56,7 @@ impl Rule for MustNotDependOnAnythingRule {
             let red = Style::new().fg(RGB(255, 0, 0)).bold();
             Err(format!(
                 "Forbidden dependencies to {} in file://{}",
-                red.paint("[".to_string() + &forbidden_dependencies.join(" ,") + "]"),
+                red.paint("[".to_string() + &forbidden_dependencies.join(", ") + "]"),
                 file
             ))
         }
@@ -136,7 +136,7 @@ impl Rule for MayDependOnRule {
             let red = Style::new().fg(RGB(255, 0, 0)).bold();
             return Err(format!(
                 "Forbidden dependencies to {} in file://{}",
-                red.paint("[".to_string() + &forbidden_dependencies.join(" ,") + "]"),
+                red.paint("[".to_string() + &forbidden_dependencies.join(", ") + "]"),
                 file
             ));
         }

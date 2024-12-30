@@ -16,10 +16,11 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
     };
 
     let mut dependencies = Vec::new();
+    let module = get_module(path).unwrap();
 
     for item in ast.items.iter() {
         if let Item::Use(ItemUse { tree, .. }) = item {
-            collect_dependencies_from_tree(tree, &mut dependencies, "".to_string());
+            collect_dependencies_from_tree(tree, &mut dependencies, module.clone());
         }
     }
 
@@ -48,7 +49,13 @@ fn collect_dependencies_from_tree(tree: &UseTree, dependencies: &mut Vec<String>
         UseTree::Path(path) => {
             let ident = path.ident.to_string();
             let token = path.colon2_token.to_token_stream().to_string();
-            if ident == "crate" {
+            if ident == "super" {
+                collect_dependencies_from_tree(
+                    path.tree.deref(),
+                    dependencies,
+                    prefix.rsplitn(2, "::").nth(1).unwrap().to_string(),
+                );
+            } else if ident == "crate" {
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
@@ -212,4 +219,12 @@ fn test_dependencies() {
     ];
 
     assert_eq!(expected_dependencies, dependencies);
+}
+
+#[test]
+fn test_super_dependencies() {
+    assert_eq!(
+        get_dependencies_in_file("./sample_project/src/conversion/infrastructure.rs"),
+        vec![String::from("crate::conversion::application::application_function")]
+    );
 }
