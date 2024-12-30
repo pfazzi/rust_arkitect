@@ -3,7 +3,6 @@ use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::debug;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 
 pub trait Rule: Display {
     fn apply(&self, file: &str) -> Result<(), String>;
@@ -165,9 +164,8 @@ fn test_dependency_rule() {
         allowed_external_dependencies: vec!["chrono".to_string()],
     };
 
-    let result = rule.apply(
-        "/Users/patrickfazzi/Projects/rust_arkitect/sample_project/src/conversion/application.rs", // TODO: Fixme
-    );
+    let result =
+        rule.apply("./../rust_arkitect/examples/sample_project/src/conversion/application.rs");
 
     assert!(result.is_err());
 }

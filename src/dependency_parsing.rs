@@ -134,7 +134,8 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
 
 #[test]
 pub fn test_parsing() {
-    let dependencies = get_dependencies_in_file("./sample_project/src/conversion/application.rs");
+    let dependencies =
+        get_dependencies_in_file("./examples/sample_project/src/conversion/application.rs");
     assert_eq!(
         dependencies,
         vec![
@@ -147,12 +148,14 @@ pub fn test_parsing() {
 #[test]
 fn test_file_path() {
     assert_eq!(
-        get_module("./sample_project/src/conversion/application.rs"),
+        get_module("./examples/sample_project/src/conversion/application.rs"),
         Ok(String::from("crate::conversion::application"))
     );
 
     assert_eq!(
-        get_module("/users/reandom/projects/rust_arkitect/sample_project/src/conversion"),
+        get_module(
+            "/users/reandom/projects/rust_arkitect/sample_project/sample_project/src/conversion"
+        ),
         Ok(String::from("crate::conversion"))
     );
 }
@@ -224,7 +227,7 @@ fn test_dependencies() {
 #[test]
 fn test_super_dependencies() {
     assert_eq!(
-        get_dependencies_in_file("./sample_project/src/conversion/infrastructure.rs"),
+        get_dependencies_in_file("./examples/sample_project/src/conversion/infrastructure.rs"),
         vec![String::from(
             "crate::conversion::application::application_function"
         )]

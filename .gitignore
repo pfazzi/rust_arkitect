@@ -1,6 +1,6 @@
 /target
 /Cargo.lock
-/sample_project/target
-/sample_project/Cargo.lock
+/examples/sample_project/target
+/examples/sample_project/Cargo.lock
 /examples/acme_project/target/
 /examples/acme_project/Cargo.lock
