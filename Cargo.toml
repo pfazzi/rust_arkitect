@@ -1,7 +1,14 @@
 [package]
 name = "rust_arkitect"
-version = "0.1.0"
+version = "0.0.1"
+authors = ["Patrick Luca Fazzi <patrick91@live.it>"]
 edition = "2021"
+description = "rust_arkitect is a lightweight library for defining and validating architectural rules in Rust projects"
+license = "MIT"
+repository = "https://github.com/pfazzi/rust_arkitect"
+readme = "README.md"
+keywords = ["architecture", "fitness-functions"]
+categories = ["development-tools"]
 
 [dependencies]
 syn = { version = "2.0", features = ["full", "visit"] }
