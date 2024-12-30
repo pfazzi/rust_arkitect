@@ -73,7 +73,7 @@ pub struct ArchitecturalRules {
 }
 
 impl ArchitecturalRules {
-    pub(crate) fn allow_external_dependencies(mut self, external_dependencies: &[&str]) -> Self {
+    pub fn allow_external_dependencies(mut self, external_dependencies: &[&str]) -> Self {
         self.allowed_external_dependencies = external_dependencies
             .iter()
             .map(|&s| s.to_string())
