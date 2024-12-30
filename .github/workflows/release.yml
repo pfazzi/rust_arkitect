@@ -18,6 +18,9 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install cargo-release
+        run: cargo install cargo-release
+
       - name: Run tests
         run: cargo test --verbose
 
