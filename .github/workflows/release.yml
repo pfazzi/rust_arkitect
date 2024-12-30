@@ -32,4 +32,4 @@ jobs:
       - name: Release version
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo release --no-confirm --skip-publish
+        run: cargo release --no-confirm --no-publish
