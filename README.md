@@ -106,7 +106,7 @@ fn test_logging_in_architecture_rules() {
     // Initialize logging
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(),"./../src");
+    let project = Project::from_relative_path(file!(), "./../src");
 
     let rules = ArchitecturalRules::define()
         .component("Application")
