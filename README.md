@@ -133,7 +133,8 @@ RUST_LOG=info cargo test -- --nocapture
 ```
 Example Output:
 ```plaintext
-WARN  rust_arkitect > ❌ Rule violated: crate::application may depend on [crate::domain]
+[2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule crate::event_sourcing may depend on [std::fmt] violated: forbidden dependencies to [crate::domain::events::event] in file:///users/random/projects/acme_project/src/event_sourcing/events.rs
+[2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule crate::utils may not depend on any modules violated: forbidden dependencies to [crate::infrastructure::redis::*] in file:///users/random/projects/acme_project/src/utils/refill.rs
 ```
 
 ## Project Status
