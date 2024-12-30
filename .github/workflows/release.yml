@@ -13,6 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Check if tag already exists
+        run: |
+          if git rev-parse "v$(grep '^version' Cargo.toml | sed 's/version = //g' | tr -d '"' | tr -d ' ')" >/dev/null 2>&1; then
+            echo "Tag already exists. Stopping workflow."
+            exit 1
+          fi
+
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
