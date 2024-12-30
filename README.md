@@ -1,4 +1,4 @@
-# Rust Arkitect - Proof of Concept
+# Rust Arkitect
 
 **Rust Arkitect** is a Proof of Concept inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
 
@@ -19,6 +19,7 @@ let project = Project::from_relative_path(file!(), "./../src");
 let rules = ArchitecturalRules::define()
     .component("Domain")
         .located_at("crate::domain")
+        .allow_external_dependencies(&["std::fmt"])
         .must_not_depend_on_anything()
     .component("Application")
         .located_at("crate::application")
@@ -70,17 +71,23 @@ fn test_architectural_rules() {
 
         .component("Domain")
             .located_at("crate::domain")
+            .allow_external_dependencies(&["std::fmt"])
             .must_not_depend_on_anything()
 
         .component("Infrastructure")
             .located_at("crate::infrastructure")
+            .allow_external_dependencies(&["serde"])
             .may_depend_on(&["Domain", "Application"])
 
         .finalize();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert!(result.is_ok());
+    assert!(
+      result.is_ok(),
+      "Detected {} violations",
+      result.err().unwrap().len()
+    );
 }
 ```
 
@@ -131,15 +138,7 @@ WARN  rust_arkitect > ❌ Rule violated: crate::application may depend on [crate
 
 ## Project Status
 
-- **Implemented**:
-    - DSL for defining architectural rules
-    - Validation logic works on the example project provided in this repository
-
-- **Pending**:
-    - Validation on real-world Rust projects
-    - Support for more complex architectural patterns
-
-This project is in the early stages and serves as a demonstration of the core concept.
+This project is now functional and serves as a proof of concept to showcase the core idea.
 
 ## Feedback
 
