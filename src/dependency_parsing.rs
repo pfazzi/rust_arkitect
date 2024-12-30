@@ -225,6 +225,8 @@ fn test_dependencies() {
 fn test_super_dependencies() {
     assert_eq!(
         get_dependencies_in_file("./sample_project/src/conversion/infrastructure.rs"),
-        vec![String::from("crate::conversion::application::application_function")]
+        vec![String::from(
+            "crate::conversion::application::application_function"
+        )]
     );
 }
