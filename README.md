@@ -129,7 +129,7 @@ fn test_logging_in_architecture_rules() {
 You can adjust the verbosity of the logging output by setting the RUST_LOG environment variable:
 - Verbose Mode: Shows detailed information, including applied and respected rules:
 ```bash
-RUST_LOG=info cargo test -- --nocapture
+RUST_LOG=error cargo test -- --nocapture
 ```
 Example Output:
 ```plaintext
