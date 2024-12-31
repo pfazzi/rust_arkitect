@@ -1,4 +1,4 @@
-# Rust Arkitect TEST
+# Rust Arkitect TEST TEST
 
 **Rust Arkitect** is a Proof of Concept inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
 
