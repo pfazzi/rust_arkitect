@@ -50,7 +50,7 @@ impl Arkitect {
     }
 
     pub fn complies_with(&mut self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
-        run(&self.project, rules)
+        run(&self.project.absolute_path.as_str(), rules)
     }
 }
 

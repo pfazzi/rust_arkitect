@@ -20,10 +20,14 @@ impl Display for MustNotDependOnAnythingRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut allowed_dependencies: Vec<String> = Vec::new();
         allowed_dependencies.extend(self.allowed_external_dependencies.clone());
+        let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         if allowed_dependencies.is_empty() {
-            write!(f, "{} may not depend on any modules", self.subject)
+            write!(
+                f,
+                "{} may not depend on any modules",
+                bold.paint(self.subject.clone()),
+            )
         } else {
-            let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
             write!(
                 f,
                 "{} may depend on {}",
@@ -85,10 +89,14 @@ impl Display for MayDependOnRule {
         let mut allowed_dependencies: Vec<String> = Vec::new();
         allowed_dependencies.extend(self.allowed_dependencies.clone());
         allowed_dependencies.extend(self.allowed_external_dependencies.clone());
+        let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         if allowed_dependencies.is_empty() {
-            write!(f, "{} may not depend on any modules", self.subject)
+            write!(
+                f,
+                "{} may not depend on any modules",
+                bold.paint(self.subject.clone())
+            )
         } else {
-            let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
             write!(
                 f,
                 "{} may depend on {}",
