@@ -1,6 +1,6 @@
 [package]
 name = "rust_arkitect"
-version = "0.0.13"
+version = "0.0.14"
 authors = ["Patrick Luca Fazzi <patrick91@live.it>"]
 edition = "2021"
 description = "rust_arkitect is a lightweight library for defining and validating architectural rules in Rust projects"
