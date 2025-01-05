@@ -1,9 +1,9 @@
-use std::fs;
+use crate::dsl::Project;
+use crate::rules::Rule;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};
-use crate::dsl::Project;
-use crate::rules::Rule;
+use std::fs;
 
 pub(crate) fn run(project: &Project, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
     let mut violations = vec![];

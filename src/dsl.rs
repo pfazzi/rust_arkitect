@@ -1,8 +1,8 @@
+use crate::engine::run;
+use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
 use std::path::Path;
-use crate::engine::run;
 
 pub struct Project {
     pub(crate) absolute_path: String,
@@ -59,7 +59,6 @@ impl Arkitect {
         Arkitect { project }
     }
 }
-
 
 pub struct ArchitecturalRules<State> {
     state: PhantomData<State>,
@@ -134,7 +133,10 @@ impl ArchitecturalRules<LocationDefined> {
         ArchitecturalRules {
             state: PhantomData,
             component: TemporaryComponent {
-                allowed_external_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
+                allowed_external_dependencies: dependencies
+                    .iter()
+                    .map(|&s| s.to_string())
+                    .collect(),
                 ..self.component
             },
             component_map: self.component_map,
@@ -218,28 +220,38 @@ impl ArchitecturalRules<ComponentDefined> {
         let mut component_map = self.component_map;
         component_map.insert(component_name, component);
 
-        let alias_map: HashMap<String, String> = component_map.iter().map(|(alias, component)| {
-            (alias.clone(), component.located_at.clone().unwrap())
-        }).collect();
+        let alias_map: HashMap<String, String> = component_map
+            .iter()
+            .map(|(alias, component)| (alias.clone(), component.located_at.clone().unwrap()))
+            .collect();
 
-        component_map.iter().map(|(alias, component)| -> Box<dyn Rule> {
-            match component.rule_type {
-                Some(RuleType::MayDependOn) => {
-                    Box::new(MayDependOnRule {
+        component_map
+            .iter()
+            .map(|(alias, component)| -> Box<dyn Rule> {
+                match component.rule_type {
+                    Some(RuleType::MayDependOn) => Box::new(MayDependOnRule {
                         subject: alias_map.get(alias).unwrap().clone(),
-                        allowed_dependencies: component.allowed_dependencies.iter().map(|s| alias_map.get(&s.clone()).unwrap_or(&s.clone()).clone()).collect(),
-                        allowed_external_dependencies: component.allowed_external_dependencies.clone(),
-                    })
+                        allowed_dependencies: component
+                            .allowed_dependencies
+                            .iter()
+                            .map(|s| alias_map.get(&s.clone()).unwrap_or(&s.clone()).clone())
+                            .collect(),
+                        allowed_external_dependencies: component
+                            .allowed_external_dependencies
+                            .clone(),
+                    }),
+                    Some(RuleType::MustNotDependentOnAnything) => {
+                        Box::new(MustNotDependOnAnythingRule {
+                            subject: alias_map.get(alias).unwrap().clone(),
+                            allowed_external_dependencies: component
+                                .allowed_external_dependencies
+                                .clone(),
+                        })
+                    }
+                    None => panic!("This should never happen"),
                 }
-                Some(RuleType::MustNotDependentOnAnything) => {
-                    Box::new(MustNotDependOnAnythingRule {
-                        subject: alias_map.get(alias).unwrap().clone(),
-                        allowed_external_dependencies: component.allowed_external_dependencies.clone(),
-                    })
-                }
-                None => panic!("This should never happen"),
-            }
-        }).collect()
+            })
+            .collect()
     }
 }
 

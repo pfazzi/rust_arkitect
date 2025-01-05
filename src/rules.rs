@@ -74,7 +74,7 @@ fn is_child(module: String, child: String) -> bool {
 }
 
 #[derive(Debug)]
-pub struct  MayDependOnRule {
+pub struct MayDependOnRule {
     pub(crate) subject: String,
     pub(crate) allowed_dependencies: Vec<String>,
     pub(crate) allowed_external_dependencies: Vec<String>,
