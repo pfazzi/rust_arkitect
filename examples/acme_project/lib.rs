@@ -1,5 +1,7 @@
 pub mod architecture_tests {
-    use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
+    use rust_arkitect::dsl::ArchitecturalRules;
+    use rust_arkitect::dsl::Arkitect;
+    use rust_arkitect::dsl::Project;
 
     #[test]
     fn test_architectural_rules() {

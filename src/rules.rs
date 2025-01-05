@@ -10,6 +10,7 @@ pub trait Rule: Display {
     fn is_applicable(&self, file: &str) -> bool;
 }
 
+#[derive(Debug)]
 pub struct MustNotDependOnAnythingRule {
     pub(crate) subject: String,
     pub(crate) allowed_external_dependencies: Vec<String>,
@@ -72,6 +73,7 @@ fn is_child(module: String, child: String) -> bool {
     child.starts_with(module.as_str())
 }
 
+#[derive(Debug)]
 pub struct MayDependOnRule {
     pub(crate) subject: String,
     pub(crate) allowed_dependencies: Vec<String>,

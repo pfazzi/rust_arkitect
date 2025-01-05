@@ -28,7 +28,7 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
 }
 
 fn get_dependencies_in_str(s: &str) -> Vec<String> {
-    let ast: File = match syn::parse_str(s.clone()) {
+    let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
     };
