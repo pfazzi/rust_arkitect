@@ -28,10 +28,6 @@ let rules = ArchitecturalRules::define()
 ```
 The DSL mirrors how developers naturally think about architecture, making it both clear and concise.
 
-### DSL with IDE Autocomplete Support
-When using the DSL, your IDE provides suggestions as you type, guiding you through the available methods and their signatures: start typing `ArchitecturalRules`, and autocomplete will guide you!
-![Autocomplete Example](docs/images/autocomplete.png)
-
 ### Test-Driven Validation
 The DSL integrates seamlessly with Rust’s testing framework, allowing you to assert compliance as part of your test suite:
 
@@ -40,6 +36,13 @@ let result = Arkitect::ensure_that(project).complies_with(rules);
 
 assert!(result.is_ok());
 ```
+
+### DSL with IDE Autocomplete Support
+When using the DSL, your IDE provides suggestions as you type, guiding you through the available methods and their signatures: start typing `ArchitecturalRules`, and autocomplete will guide you!
+
+<div style="text-align: center;">
+    <img src="docs/images/autocomplete.png" alt="Autocomplete Example" width="500px">
+</div>
 
 ## Example
 Given a project with the following structure:
