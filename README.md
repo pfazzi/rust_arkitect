@@ -94,6 +94,9 @@ fn test_architectural_rules() {
     );
 }
 ```
+### Built with Its Own Rules
+
+Rust Arkitect is developed and tested using the same architectural rules it helps enforce. This approach ensures that the tool remains consistent with the principles it promotes. You can see the [architecture tests here](tests/test_architecture.rs).
 
 ## Logging Support
 
