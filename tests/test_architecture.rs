@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use std::result;
     use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
+    use std::result;
 
     #[test]
     fn test_compliance() {
@@ -29,7 +29,7 @@ mod tests {
 
             .finalize();
 
-            let result = Arkitect::ensure_that(project).complies_with(rules);
+        let result = Arkitect::ensure_that(project).complies_with(rules);
 
         assert!(
             result.is_ok(),

@@ -22,7 +22,11 @@ impl Display for MustNotDependOnAnythingRule {
         allowed_dependencies.extend(self.allowed_external_dependencies.clone());
         let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         if allowed_dependencies.is_empty() {
-            write!(f, "{} may not depend on any modules", bold.paint(self.subject.clone()),)
+            write!(
+                f,
+                "{} may not depend on any modules",
+                bold.paint(self.subject.clone()),
+            )
         } else {
             write!(
                 f,
@@ -87,9 +91,12 @@ impl Display for MayDependOnRule {
         allowed_dependencies.extend(self.allowed_external_dependencies.clone());
         let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         if allowed_dependencies.is_empty() {
-            write!(f, "{} may not depend on any modules", bold.paint(self.subject.clone()))
+            write!(
+                f,
+                "{} may not depend on any modules",
+                bold.paint(self.subject.clone())
+            )
         } else {
-
             write!(
                 f,
                 "{} may depend on {}",
