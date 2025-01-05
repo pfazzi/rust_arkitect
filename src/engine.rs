@@ -1,14 +1,13 @@
-use crate::dsl::Project;
 use crate::rules::Rule;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};
 use std::fs;
 
-pub(crate) fn run(project: &Project, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
+pub(crate) fn run(absolute_path: &str, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
     let mut violations = vec![];
 
-    validate_dir(project.absolute_path.as_str(), &rules, &mut violations);
+    validate_dir(absolute_path, &rules, &mut violations);
 
     if violations.is_empty() {
         return Ok(());
