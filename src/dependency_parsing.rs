@@ -303,8 +303,84 @@ fn test_rename_dependencies() {
     let dependencies = get_dependencies_in_str(source, "crate::module".to_string());
 
     let expected_dependencies = vec![
-        "crate::module::original_name".to_string(), // Rename dependency
+        "crate::module::original_name".to_string(),
     ];
 
     assert_eq!(expected_dependencies, dependencies);
+}
+
+#[test]
+fn test_inline_module_multiple_dependencies() {
+    let source = r#"
+    mod submodule {
+        use crate::some::dependency;
+        use crate::another::dependency;
+    }
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate".to_string());
+
+    let expected_dependencies = vec![
+        "crate::some::dependency".to_string(),
+        "crate::another::dependency".to_string(),
+    ];
+
+    assert_eq!(dependencies, expected_dependencies);
+}
+
+#[test]
+#[ignore]
+fn test_inline_nested_modules() {
+    let source = r#"
+    mod submodule {
+        mod nested {
+            use crate::nested::dependency;
+        }
+    }
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate".to_string());
+
+    let expected_dependencies = vec![
+        "crate::nested::dependency".to_string(),
+    ];
+
+    assert_eq!(dependencies, expected_dependencies);
+}
+
+#[test]
+#[ignore]
+fn test_inline_empty_module() {
+    let source = r#"
+    mod submodule {}
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate".to_string());
+
+    let expected_dependencies: Vec<String> = vec![];
+
+    assert_eq!(dependencies, expected_dependencies);
+}
+
+#[test]
+#[ignore]
+fn test_inline_complex_modules() {
+    let source = r#"
+    mod submodule {
+        use crate::some::dependency;
+
+        mod nested {
+            use crate::nested::dependency;
+        }
+    }
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate".to_string());
+
+    let expected_dependencies = vec![
+        "crate::some::dependency".to_string(),
+        "crate::nested::dependency".to_string(),
+    ];
+
+    assert_eq!(dependencies, expected_dependencies);
 }
