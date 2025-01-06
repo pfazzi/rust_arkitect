@@ -1,6 +1,9 @@
 # 📐 Rust Arkitect
 
 [![codecov](https://codecov.io/github/pfazzi/rust_arkitect/graph/badge.svg?token=FVLITXKTQE)](https://codecov.io/github/pfazzi/rust_arkitect)
+[![Crate Version](https://img.shields.io/crates/v/rust_arkitect.svg)](https://crates.io/crates/rust_arkitect)
+[![Crate Downloads](https://img.shields.io/crates/d/rust_arkitect.svg)](https://crates.io/crates/rust_arkitect)
+[![Crate License](https://img.shields.io/crates/l/rust_arkitect.svg)](https://crates.io/crates/rust_arkitect)
 
 **Rust Arkitect** is a library inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
 

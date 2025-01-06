@@ -7,10 +7,10 @@ on:
     paths:
       - "Cargo.toml"
 
-workflow_run:
-  workflows: ["Test"]
-  types:
-    - completed
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
 
 jobs:
   release:
