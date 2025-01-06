@@ -1,6 +1,8 @@
-# Rust Arkitect
+# 📐 Rust Arkitect
 
-**Rust Arkitect** is a Proof of Concept inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
+[![codecov](https://codecov.io/github/pfazzi/rust_arkitect/graph/badge.svg?token=FVLITXKTQE)](https://codecov.io/github/pfazzi/rust_arkitect)
+
+**Rust Arkitect** is a library inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
 
 ### Why It Matters
 Architectural rules are essential for maintaining clean, modular, and scalable codebases. Rust Arkitect provides developers with the tools to:
@@ -29,6 +31,7 @@ let rules = ArchitecturalRules::define()
 The DSL mirrors how developers naturally think about architecture, making it both clear and concise.
 
 ### Test-Driven Validation
+
 The DSL integrates seamlessly with Rust’s testing framework, allowing you to assert compliance as part of your test suite:
 
 ```rust
@@ -38,11 +41,16 @@ assert!(result.is_ok());
 ```
 
 ### DSL with IDE Autocomplete Support
+
 When using the DSL, your IDE provides suggestions as you type, guiding you through the available methods and their signatures: start typing `ArchitecturalRules`, and autocomplete will guide you!
 
 <div style="text-align: center;">
     <img src="docs/images/autocomplete.png" alt="Autocomplete Example" width="500px">
 </div>
+
+### Built with Its Own Rules
+
+Rust Arkitect is developed and tested using the same architectural rules it helps enforce. This approach ensures that the tool remains consistent with the principles it promotes. You can see the [architecture tests here](tests/test_architecture.rs).
 
 ## Example
 Given a project with the following structure:
@@ -97,11 +105,8 @@ fn test_architectural_rules() {
     );
 }
 ```
-### Built with Its Own Rules
 
-Rust Arkitect is developed and tested using the same architectural rules it helps enforce. This approach ensures that the tool remains consistent with the principles it promotes. You can see the [architecture tests here](tests/test_architecture.rs).
-
-## Logging Support
+# How to log errors
 
 Rust Arkitect includes logging support to provide detailed information during the validation process. This feature allows you to toggle between verbose and simple output by initializing the logger using Arkitect::init_logger().
 
@@ -147,11 +152,7 @@ Example Output:
 [2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule crate::utils may not depend on any modules violated: forbidden dependencies to [crate::infrastructure::redis::*] in file:///users/random/projects/acme_project/src/utils/refill.rs
 ```
 
-## Project Status
+# Feedback
 
-This project is now functional and serves as a proof of concept to showcase the core idea.
-
-## Feedback
-
-Rust Arkitect is an early Proof of Concept, and your feedback is invaluable to its growth.
+Rust Arkitect is a new library, and your feedback is invaluable to its growth.
 If you have ideas, suggestions, or would like to contribute, open an issue or submit a pull request.
