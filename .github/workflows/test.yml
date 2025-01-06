@@ -21,6 +21,9 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Run rust fmt
+        run: cargo fmt -- --check
+
       - name: Run tests with coverage
         run: |
           cargo install cargo-tarpaulin

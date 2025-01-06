@@ -28,6 +28,9 @@ jobs:
       - name: Install cargo-release
         run: cargo install cargo-release
 
+      - name: Run rust fmt
+        run: cargo fmt -- --check
+
       - name: Run tests
         run: cargo test --verbose
 

@@ -280,3 +280,31 @@ fn test_super_dependencies() {
         )]
     );
 }
+
+#[test]
+fn test_glob_dependencies() {
+    let source = r#"
+    use crate::module::*;
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate::module".to_string());
+
+    let expected_dependencies = vec!["crate::module::*".to_string()];
+
+    assert_eq!(expected_dependencies, dependencies);
+}
+
+#[test]
+fn test_rename_dependencies() {
+    let source = r#"
+    use crate::module::original_name as alias_name;
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate::module".to_string());
+
+    let expected_dependencies = vec![
+        "crate::module::original_name".to_string(), // Rename dependency
+    ];
+
+    assert_eq!(expected_dependencies, dependencies);
+}
