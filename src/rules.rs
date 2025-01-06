@@ -166,92 +166,100 @@ impl Rule for MayDependOnRule {
     }
 }
 
-#[test]
-fn test_dependency_rule() {
-    let rule = MayDependOnRule {
-        subject: "policy_management::domain".to_string(),
-        allowed_dependencies: vec!["conversion::domain::domain_function_1".to_string()],
-        allowed_external_dependencies: vec!["chrono".to_string()],
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let result =
-        rule.apply("./../rust_arkitect/examples/sample_project/src/conversion/application.rs");
+    #[test]
+    fn test_dependency_rule() {
+        let rule = MayDependOnRule {
+            subject: "policy_management::domain".to_string(),
+            allowed_dependencies: vec!["conversion::domain::domain_function_1".to_string()],
+            allowed_external_dependencies: vec!["chrono".to_string()],
+        };
 
-    assert!(result.is_err());
-}
+        let result =
+            rule.apply("./../rust_arkitect/examples/sample_project/src/conversion/application.rs");
 
-#[test]
-fn test_display_must_not_depend_on_anything_with_dependencies() {
-    use ansi_term::Color::RGB;
-    use ansi_term::Style;
+        assert!(result.is_err());
+    }
 
-    let rule = MustNotDependOnAnythingRule {
-        subject: "module_1".to_string(),
-        allowed_external_dependencies: vec!["dependency_1".to_string(), "dependency_2".to_string()],
-    };
+    #[test]
+    fn test_display_must_not_depend_on_anything_with_dependencies() {
+        use ansi_term::Color::RGB;
+        use ansi_term::Style;
 
-    let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
-    let expected = format!(
-        "{} may depend on {}",
-        bold_orange.paint("module_1"),
-        bold_orange.paint("[dependency_1, dependency_2]")
-    );
-    assert_eq!(format!("{}", rule), expected);
-}
+        let rule = MustNotDependOnAnythingRule {
+            subject: "module_1".to_string(),
+            allowed_external_dependencies: vec![
+                "dependency_1".to_string(),
+                "dependency_2".to_string(),
+            ],
+        };
 
-#[test]
-fn test_display_must_not_depend_on_anything_no_dependencies() {
-    use ansi_term::Color::RGB;
-    use ansi_term::Style;
+        let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let expected = format!(
+            "{} may depend on {}",
+            bold_orange.paint("module_1"),
+            bold_orange.paint("[dependency_1, dependency_2]")
+        );
+        assert_eq!(format!("{}", rule), expected);
+    }
 
-    let rule = MustNotDependOnAnythingRule {
-        subject: "module_2".to_string(),
-        allowed_external_dependencies: vec![],
-    };
+    #[test]
+    fn test_display_must_not_depend_on_anything_no_dependencies() {
+        use ansi_term::Color::RGB;
+        use ansi_term::Style;
 
-    let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
-    let expected = format!(
-        "{} may not depend on any modules",
-        bold_orange.paint("module_2")
-    );
-    assert_eq!(format!("{}", rule), expected);
-}
+        let rule = MustNotDependOnAnythingRule {
+            subject: "module_2".to_string(),
+            allowed_external_dependencies: vec![],
+        };
 
-#[test]
-fn test_display_may_depend_on_with_dependencies() {
-    use ansi_term::Color::RGB;
-    use ansi_term::Style;
+        let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let expected = format!(
+            "{} may not depend on any modules",
+            bold_orange.paint("module_2")
+        );
+        assert_eq!(format!("{}", rule), expected);
+    }
 
-    let rule = MayDependOnRule {
-        subject: "module_3".to_string(),
-        allowed_dependencies: vec!["dependency_a".to_string()],
-        allowed_external_dependencies: vec!["dependency_b".to_string()],
-    };
+    #[test]
+    fn test_display_may_depend_on_with_dependencies() {
+        use ansi_term::Color::RGB;
+        use ansi_term::Style;
 
-    let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
-    let expected = format!(
-        "{} may depend on {}",
-        bold_orange.paint("module_3"),
-        bold_orange.paint("[dependency_a, dependency_b]")
-    );
-    assert_eq!(format!("{}", rule), expected);
-}
+        let rule = MayDependOnRule {
+            subject: "module_3".to_string(),
+            allowed_dependencies: vec!["dependency_a".to_string()],
+            allowed_external_dependencies: vec!["dependency_b".to_string()],
+        };
 
-#[test]
-fn test_display_may_depend_on_no_dependencies() {
-    use ansi_term::Color::RGB;
-    use ansi_term::Style;
+        let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let expected = format!(
+            "{} may depend on {}",
+            bold_orange.paint("module_3"),
+            bold_orange.paint("[dependency_a, dependency_b]")
+        );
+        assert_eq!(format!("{}", rule), expected);
+    }
 
-    let rule = MayDependOnRule {
-        subject: "module_4".to_string(),
-        allowed_dependencies: vec![],
-        allowed_external_dependencies: vec![],
-    };
+    #[test]
+    fn test_display_may_depend_on_no_dependencies() {
+        use ansi_term::Color::RGB;
+        use ansi_term::Style;
 
-    let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
-    let expected = format!(
-        "{} may not depend on any modules",
-        bold_orange.paint("module_4")
-    );
-    assert_eq!(format!("{}", rule), expected);
+        let rule = MayDependOnRule {
+            subject: "module_4".to_string(),
+            allowed_dependencies: vec![],
+            allowed_external_dependencies: vec![],
+        };
+
+        let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let expected = format!(
+            "{} may not depend on any modules",
+            bold_orange.paint("module_4")
+        );
+        assert_eq!(format!("{}", rule), expected);
+    }
 }

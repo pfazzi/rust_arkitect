@@ -256,8 +256,9 @@ impl ArchitecturalRules<ComponentDefined> {
     }
 }
 
-mod test {
-    use crate::dsl::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     #[test]
     fn test_two_items() {
