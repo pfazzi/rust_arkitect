@@ -298,7 +298,7 @@ mod test {
 
         assert_eq!(
             rules.component.allowed_dependencies,
-            vec!["Dependency1".to_string(), "Dependency2".to_string()]
+            vec!["dependency1".to_string(), "dependency2".to_string()]
         );
 
         assert_eq!(rules.component.rule_type, Some(RuleType::MayDependOn));
