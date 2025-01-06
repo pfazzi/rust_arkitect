@@ -66,6 +66,7 @@ pub struct ArchitecturalRules<State> {
     component_map: HashMap<String, TemporaryComponent>,
 }
 
+#[derive(Debug, PartialEq)]
 enum RuleType {
     MayDependOn,
     MustNotDependentOnAnything,
@@ -256,7 +257,7 @@ impl ArchitecturalRules<ComponentDefined> {
 }
 
 mod test {
-    use crate::dsl::ArchitecturalRules;
+    use crate::dsl::*;
 
     #[test]
     fn test_two_items() {
@@ -286,5 +287,35 @@ mod test {
             .finalize();
 
         assert_eq!(rules.len(), 1);
+    }
+
+    #[test]
+    fn test_may_depend_on() {
+        let rules = ArchitecturalRules::<Begin>::define()
+            .component("Component1")
+            .located_at("crate::test_component_1")
+            .may_depend_on(&["dependency1", "dependency2"]);
+
+        assert_eq!(
+            rules.component.allowed_dependencies,
+            vec!["Dependency1".to_string(), "Dependency2".to_string()]
+        );
+
+        assert_eq!(rules.component.rule_type, Some(RuleType::MayDependOn));
+    }
+
+    #[test]
+    fn test_must_not_depend_on_anything() {
+        let rules = ArchitecturalRules::<Begin>::define()
+            .component("Component1")
+            .located_at("crate::test_component_1")
+            .must_not_depend_on_anything();
+
+        assert!(rules.component.allowed_dependencies.is_empty());
+
+        assert_eq!(
+            rules.component.rule_type,
+            Some(RuleType::MustNotDependentOnAnything)
+        );
     }
 }
