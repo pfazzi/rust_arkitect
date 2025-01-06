@@ -32,7 +32,7 @@ fn apply_rules(file: std::path::PathBuf, rules: &[Box<dyn Rule>], violations: &m
             match rule.apply(file_name) {
                 Ok(_) => info!("\u{2705} Rule {} respected", rule),
                 Err(e) => {
-                    error!("🟥 Rule {} violated: {}", rule, e.clone().to_lowercase());
+                    error!("🟥 Rule {} violated: {}", rule, e.clone());
                     violations.push(e)
                 }
             }
