@@ -20,14 +20,14 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
 
     for item in ast.items.iter() {
         if let Item::Use(ItemUse { tree, .. }) = item {
-            collect_dependencies_from_tree(tree, &mut dependencies, module.clone());
+            collect_dependencies_from_tree(tree, &mut dependencies, "".to_string(), module.clone());
         }
     }
 
     dependencies
 }
 
-fn get_dependencies_in_str(s: &str) -> Vec<String> {
+fn get_dependencies_in_str(s: &str, super_module: String) -> Vec<String> {
     let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
@@ -37,14 +37,24 @@ fn get_dependencies_in_str(s: &str) -> Vec<String> {
 
     for item in ast.items.iter() {
         if let Item::Use(ItemUse { tree, .. }) = item {
-            collect_dependencies_from_tree(tree, &mut dependencies, "".to_string());
+            collect_dependencies_from_tree(
+                tree,
+                &mut dependencies,
+                "".to_string(),
+                super_module.clone(),
+            );
         }
     }
 
     dependencies
 }
 
-fn collect_dependencies_from_tree(tree: &UseTree, dependencies: &mut Vec<String>, prefix: String) {
+fn collect_dependencies_from_tree(
+    tree: &UseTree,
+    dependencies: &mut Vec<String>,
+    prefix: String,
+    super_module: String,
+) {
     match tree {
         UseTree::Path(path) => {
             let ident = path.ident.to_string();
@@ -53,13 +63,15 @@ fn collect_dependencies_from_tree(tree: &UseTree, dependencies: &mut Vec<String>
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    prefix.rsplitn(2, "::").nth(1).unwrap().to_string(),
+                    super_module.rsplitn(2, "::").nth(1).unwrap().to_string(),
+                    super_module,
                 );
             } else if ident == "crate" {
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
                     "crate".to_string(),
+                    super_module,
                 );
             } else {
                 let prefix: String = if !prefix.is_empty() {
@@ -67,12 +79,22 @@ fn collect_dependencies_from_tree(tree: &UseTree, dependencies: &mut Vec<String>
                 } else {
                     ident
                 };
-                collect_dependencies_from_tree(path.tree.deref(), dependencies, prefix);
+                collect_dependencies_from_tree(
+                    path.tree.deref(),
+                    dependencies,
+                    prefix,
+                    super_module,
+                );
             }
         }
         UseTree::Group(group) => {
             group.items.iter().for_each(|item| {
-                collect_dependencies_from_tree(item, dependencies, prefix.clone());
+                collect_dependencies_from_tree(
+                    item,
+                    dependencies,
+                    prefix.clone(),
+                    super_module.clone(),
+                );
             });
         }
         UseTree::Name(name) => {
@@ -188,7 +210,7 @@ fn test_dependencies() {
     };
     "#;
 
-    let dependencies = get_dependencies_in_str(source);
+    let dependencies = get_dependencies_in_str(source, "crate::domain".to_string());
 
     let expected_dependencies = vec![
         "crate::application::container::self".to_string(),
@@ -219,6 +241,31 @@ fn test_dependencies() {
         "crate::infrastructure::bridge::s3_service::S3Service".to_string(),
         "crate::infrastructure::bridge::antifraud::mock_antifraud_service_default".to_string(),
         "crate::infrastructure::bridge::antifraud::AntifraudService".to_string(),
+    ];
+
+    assert_eq!(expected_dependencies, dependencies);
+}
+
+#[test]
+fn test_external_dependencies() {
+    let source = r#"
+    use crate::dependency_parsing::{get_dependencies_in_file, get_module};
+    use ansi_term::Color::RGB;
+    use ansi_term::Style;
+    use log::debug;
+    use std::fmt::{Display, Formatter};
+    "#;
+
+    let dependencies = get_dependencies_in_str(source, "crate::domain".to_string());
+
+    let expected_dependencies = vec![
+        "crate::dependency_parsing::get_dependencies_in_file".to_string(),
+        "crate::dependency_parsing::get_module".to_string(),
+        "ansi_term::Color::RGB".to_string(),
+        "ansi_term::Style".to_string(),
+        "log::debug".to_string(),
+        "std::fmt::Display".to_string(),
+        "std::fmt::Formatter".to_string(),
     ];
 
     assert_eq!(expected_dependencies, dependencies);
