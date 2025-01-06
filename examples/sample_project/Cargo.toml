@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rust_arkitect = { path = "../../" }
+rust_arkitect = "0.1"

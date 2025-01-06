@@ -7,4 +7,4 @@ edition = "2021"
 path = "lib.rs"
 
 [dependencies]
-rust_arkitect = { path = "../../" }
+rust_arkitect = "0.1"
