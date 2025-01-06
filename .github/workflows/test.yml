@@ -21,5 +21,12 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Run tests
-        run: cargo test --verbose
+      - name: Run tests with coverage
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --out Xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
