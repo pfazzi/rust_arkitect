@@ -5,60 +5,54 @@
 [![Crate Downloads](https://img.shields.io/crates/d/rust_arkitect.svg)](https://crates.io/crates/rust_arkitect)
 [![Crate License](https://img.shields.io/crates/l/rust_arkitect.svg)](https://crates.io/crates/rust_arkitect)
 
-**Rust Arkitect** is a library inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), designed to define and validate architectural rules in Rust projects. By leveraging a simple, developer-friendly DSL, Rust Arkitect helps maintain clean architectures.
+**Rust Arkitect** is a powerful tool that puts your architectural rules to the test, ensuring your Rust projects maintain a clean and modular structure. Inspired by [phparkitect/arkitect](https://github.com/phparkitect/arkitect), it provides a developer-friendly DSL to define and validate architectural constraints seamlessly integrated into your workflow.
 
-### Why It Matters
-Architectural rules are essential for maintaining clean, modular, and scalable codebases. Rust Arkitect provides developers with the tools to:
-- Clearly document architectural rules
-- Consistently enforce rules across the codebase, preventing accidental violations
-- Catch architectural issues early with immediate feedback during testing
+# 🚀 Why Rust Arkitect?
+Rust Arkitect helps you:
+- **Define Rules Clearly:** Use a simple DSL to specify architectural rules that mirror natural language
+- **Refactor Legacy Code Safely:** Establish a baseline of violations, monitor improvements, and prevent regressions
+- **Validate Continuously:** Integrate architectural tests seamlessly into your test suite, with immediate feedback during development
 
-By integrating directly with Rust’s testing framework, Rust Arkitect allows teams to ensure their architecture evolves safely as their codebase grows.
-
-### Readable and Expressive
-Rust Arkitect provides a developer-friendly DSL that simplifies defining and enforcing architectural rules.
-The DSL is designed to be as close to plain English as possible, making it easy to understand even for those new to the project. For example:
-```rust
-let project = Project::from_relative_path(file!(), "./../src");
-
-let rules = ArchitecturalRules::define()
-    .component("Domain")
-        .located_at("crate::domain")
-        .allow_external_dependencies(&["std::fmt"])
-        .must_not_depend_on_anything()
-    .component("Application")
-        .located_at("crate::application")
-        .may_depend_on(&["Domain"])
-    .finalize();
+# 🧑‍💻 Getting Started
+Add Rust Arkitect to your `Cargo.toml`:
+```toml
+[dev-dependencies]
+rust_arkitect = "0.1.0"
 ```
-The DSL mirrors how developers naturally think about architecture, making it both clear and concise.
-
-### Test-Driven Validation
-
-The DSL integrates seamlessly with Rust’s testing framework, allowing you to assert compliance as part of your test suite:
-
+Define your architectural rules:
 ```rust
-let result = Arkitect::ensure_that(project).complies_with(rules);
+use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
-assert!(result.is_ok());
+#[test]
+fn test_architectural_rules() {
+    let project = Project::from_relative_path(file!(), "./../src");
+
+    let rules = ArchitecturalRules::define()
+        .component("Domain")
+            .located_at("crate::domain")
+            .allow_external_dependencies(&["std::fmt"])
+            .must_not_depend_on_anything()
+        .component("Application")
+            .located_at("crate::application")
+            .may_depend_on(&["Domain"])
+        .finalize();
+
+    let result = Arkitect::ensure_that(project).complies_with(rules);
+
+    assert!(result.is_ok(), "Detected {} violations", result.err().unwrap().len());
+}
+
 ```
 
-### DSL with IDE Autocomplete Support
+#  🏗️ Refactoring Legacy Code with Rust Arkitect
 
-When using the DSL, your IDE provides suggestions as you type, guiding you through the available methods and their signatures: start typing `ArchitecturalRules`, and autocomplete will guide you!
-
-<div style="text-align: center;">
-    <img src="docs/images/autocomplete.png" alt="Autocomplete Example" width="500px">
-</div>
-
-### Built with Its Own Rules
-
-Rust Arkitect is developed and tested using the same architectural rules it helps enforce. This approach ensures that the tool remains consistent with the principles it promotes. You can see the [architecture tests here](tests/test_architecture.rs).
+Rust Arkitect enables structured refactoring of legacy codebases. By establishing a baseline of current architectural violations, you can track improvements over time and ensure that no new violations are introduced during refactoring.
 
 ## Example
-Given a project with the following structure:
+Rust Arkitect enables structured refactoring of legacy codebases. By establishing a baseline of current architectural violations, you can track improvements over time and ensure that no new violations are introduced during refactoring.
 
-```plaintext
+Given a project with the following structure:
+```text
 src/
 ├── application/
 │   ├── mod.rs
@@ -72,16 +66,12 @@ src/
 │   ├── auth.rs
 │   └── database.rs
 ```
-
 You can define and test architectural rules:
 ```rust
-use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
-
 #[test]
-fn test_architectural_rules() {
+fn test_architecture_baseline() {
     let project = Project::from_relative_path(file!(), "./../src");
 
-    #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .component("Application")
             .located_at("crate::application")
@@ -101,40 +91,7 @@ fn test_architectural_rules() {
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert!(
-      result.is_ok(),
-      "Detected {} violations",
-      result.err().unwrap().len()
-    );
-}
-```
-
-## Using Rust Arkitect for Legacy Code Refactoring
-
-In legacy codebases, refactoring can be risky without a way to monitor architectural changes. **`rust_arkitect`** enables you to implement a **fitness function** for your architecture by:
-1. Measuring the current state of architectural violations
-2. Defining a baseline to track improvements
-3. Ensuring no new violations are introduced during refactoring
-
-### Example Test with Baseline
-
-Suppose your codebase has **30 violations**. Use the following test to monitor progress:
-
-```rust
-#[test]
-fn test_architecture_baseline() {
-    let rules = ArchitecturalRules::define()
-        .component("business_logic")
-            .located_at("crate::business_logic")
-            .may_depend_on(&["crate::utils"])
-        .component("utils")
-            .located_at("crate::utils")
-            .must_not_depend_on_anything()
-        .finalize();
-
-    let result = rust_arkitect::validate_rules("./src", rules);
-
-    let baseline_violations = 30; // Current known violations
+    let baseline_violations = 30;
 
     match result {
         Ok(_) => panic!("Expected at least {} violations, but found none!", baseline_violations),
@@ -150,17 +107,12 @@ fn test_architecture_baseline() {
     }
 }
 ```
+This test ensures that the number of violations does not exceed the established baseline, promoting continuous improvement in your codebase's architecture.
 
-The test expects up to 30 violations. The number of violations must not exceed the baseline and should reduce over time.
-This approach ensures incremental improvements while maintaining architectural consistency.
+# 🔍 Logging Violations
 
-# How to log errors
-
-Rust Arkitect includes logging support to provide detailed information during the validation process. This feature allows you to toggle between verbose and simple output by initializing the logger using Arkitect::init_logger().
-
-### How to Enable Logging
-
-To enable logging, simply call Arkitect::init_logger() at the start of your tests or application. For example:
+Rust Arkitect includes logging support to provide detailed information during the validation process.
+To enable logging, simply call `Arkitect::init_logger()` at the start of your tests. For example:
 ```rust
 use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
@@ -169,28 +121,13 @@ fn test_logging_in_architecture_rules() {
     // Initialize logging
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../src");
-
-    let rules = ArchitecturalRules::define()
-        .component("Application")
-            .located_at("crate::application")
-            .may_depend_on(&["Domain"])
-
-        .component("Domain")
-            .located_at("crate::domain")
-            .must_not_depend_on_anything()
-        .finalize();
-
-    let result = Arkitect::ensure_that(project).complies_with(rules);
+    ...
 
     assert!(result.is_ok());
 }
 ```
 
-### Controlling Verbosity
-
 You can adjust the verbosity of the logging output by setting the RUST_LOG environment variable:
-- Verbose Mode: Shows detailed information, including applied and respected rules:
 ```bash
 RUST_LOG=error cargo test -- --nocapture
 ```
@@ -200,7 +137,10 @@ Example Output:
 [2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule crate::utils may not depend on any modules violated: forbidden dependencies to [crate::infrastructure::redis::*] in file:///users/random/projects/acme_project/src/utils/refill.rs
 ```
 
-# Feedback
+# 😇 Built with Its Own Rules
 
-Rust Arkitect is a new library, and your feedback is invaluable to its growth.
-If you have ideas, suggestions, or would like to contribute, open an issue or submit a pull request.
+Rust Arkitect is built and tested using the same architectural rules it enforces. This ensures the tool remains consistent with the principles it promotes. You can explore the [architecture tests here](tests/test_architecture.rs) to see it in action.
+
+# 🛠️ Contribute
+
+Rust Arkitect is an evolving project, and your feedback is invaluable. Whether you have suggestions, encounter issues, or wish to contribute, please open an issue or submit a pull request. Together, we can build robust and maintainable Rust applications.
