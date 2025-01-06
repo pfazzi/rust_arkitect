@@ -109,6 +109,51 @@ fn test_architectural_rules() {
 }
 ```
 
+## Using Rust Arkitect for Legacy Code Refactoring
+
+In legacy codebases, refactoring can be risky without a way to monitor architectural changes. **`rust_arkitect`** enables you to implement a **fitness function** for your architecture by:
+1. Measuring the current state of architectural violations
+2. Defining a baseline to track improvements
+3. Ensuring no new violations are introduced during refactoring
+
+### Example Test with Baseline
+
+Suppose your codebase has **30 violations**. Use the following test to monitor progress:
+
+```rust
+#[test]
+fn test_architecture_baseline() {
+    let rules = ArchitecturalRules::define()
+        .component("business_logic")
+            .located_at("crate::business_logic")
+            .may_depend_on(&["crate::utils"])
+        .component("utils")
+            .located_at("crate::utils")
+            .must_not_depend_on_anything()
+        .finalize();
+
+    let result = rust_arkitect::validate_rules("./src", rules);
+
+    let baseline_violations = 30; // Current known violations
+
+    match result {
+        Ok(_) => panic!("Expected at least {} violations, but found none!", baseline_violations),
+        Err(violations) => {
+            let current_violations = violations.len();
+            assert!(
+                current_violations <= baseline_violations,
+                "Violations increased! Expected at most {}, found {}.",
+                baseline_violations,
+                current_violations
+            );
+        }
+    }
+}
+```
+
+The test expects up to 30 violations. The number of violations must not exceed the baseline and should reduce over time.
+This approach ensures incremental improvements while maintaining architectural consistency.
+
 # How to log errors
 
 Rust Arkitect includes logging support to provide detailed information during the validation process. This feature allows you to toggle between verbose and simple output by initializing the logger using Arkitect::init_logger().
