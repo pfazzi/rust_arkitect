@@ -206,7 +206,6 @@ mod tests {
                 "crate::conversion::domain::domain_function_1",
                 "crate::conversion::domain::domain_function_2",
                 "crate::conversion::domain::domain_function_2",
-                "crate::conversion::infrastructure::infrastructure_function",
             ]
         );
     }
