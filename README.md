@@ -17,7 +17,7 @@ Rust Arkitect helps you:
 Add Rust Arkitect to your `Cargo.toml`:
 ```toml
 [dev-dependencies]
-rust_arkitect = "0.1.0"
+rust_arkitect = "0.1"
 ```
 Define your architectural rules:
 ```rust
