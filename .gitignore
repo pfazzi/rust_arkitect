@@ -4,3 +4,6 @@
 /examples/sample_project/Cargo.lock
 /examples/acme_project/target/
 /examples/acme_project/Cargo.lock
+/examples/workspace_project/target
+/examples/workspace_project/Cargo.lock
+/examples/zentrix_project

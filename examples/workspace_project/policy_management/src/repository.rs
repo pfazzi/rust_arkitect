@@ -1,4 +1,4 @@
-use crate::policy_management::model::Policy;
+use crate::model::Policy;
 
 pub fn get() -> Policy {
     Policy {

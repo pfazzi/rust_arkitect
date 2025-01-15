@@ -1,5 +1,9 @@
 use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
+fn project() -> Project {
+    Project::from_absolute_path("/Users/patrickfazzi/Projects/rust_arkitect/examples/workspace_project")
+}
+
 #[test]
 fn test_vertical_slices_architecture_rules() {
     Arkitect::init_logger();
@@ -7,20 +11,20 @@ fn test_vertical_slices_architecture_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .component("Conversion")
-            .located_at("crate::conversion")
+            .located_at("conversion")
             .may_depend_on(&["Contracts"])
 
         .component("PolicyManagement")
-            .located_at("crate::policy_management")
+            .located_at("policy_management")
             .may_depend_on(&["Contracts"])
 
-        .component("Contracts")
-            .located_at("crate::contracts")
-            .must_not_depend_on_anything()
+        .component("Application")
+            .located_at("application")
+            .may_depend_on(&["Conversion", "PolicyManagement"])
 
         .finalize();
 
-    let project = Project::from_relative_path(file!(), "./../tests");
+    let project = project();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -31,7 +35,7 @@ fn test_vertical_slices_architecture_rules() {
 fn test_mvc_architecture_rules() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../tests");
+    let project = project();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -57,7 +61,7 @@ fn test_mvc_architecture_rules() {
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../tests");
+    let project = project();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()

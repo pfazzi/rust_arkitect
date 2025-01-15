@@ -2,3 +2,7 @@
 name = "application"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+conversion = { path = "./../conversion"}
+policy_management = { path = "./../policy_management"}
