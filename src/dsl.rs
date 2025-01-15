@@ -1,4 +1,4 @@
-use crate::engine::run;
+use crate::engine::Engine;
 use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -42,6 +42,7 @@ impl Project {
 
 pub struct Arkitect {
     project: Project,
+    baseline: usize,
 }
 
 impl Arkitect {
@@ -49,14 +50,28 @@ impl Arkitect {
         let _ = env_logger::builder().is_test(false).try_init();
     }
 
-    pub fn complies_with(&mut self, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
-        run(&self.project.absolute_path.as_str(), rules)
+    pub fn with_baseline(self, baseline: usize) -> Self {
+        Self { baseline, ..self }
+    }
+
+    pub fn complies_with(&mut self, rules: Vec<Box<dyn Rule>>) -> Result<Vec<String>, Vec<String>> {
+        let violations =
+            Engine::new(self.project.absolute_path.as_str(), rules.as_slice()).get_violations();
+
+        if violations.len() <= self.baseline {
+            Ok(violations)
+        } else {
+            Err(violations)
+        }
     }
 }
 
 impl Arkitect {
     pub fn ensure_that(project: Project) -> Arkitect {
-        Arkitect { project }
+        Arkitect {
+            project,
+            baseline: 0,
+        }
     }
 }
 
@@ -227,26 +242,24 @@ impl ArchitecturalRules<ComponentDefined> {
             .collect();
 
         component_map
-            .iter()
+            .into_iter()
             .map(|(alias, component)| -> Box<dyn Rule> {
                 match component.rule_type {
                     Some(RuleType::MayDependOn) => Box::new(MayDependOnRule {
-                        subject: alias_map.get(alias).unwrap().clone(),
+                        subject: alias_map.get(&alias).unwrap().clone(),
                         allowed_dependencies: component
                             .allowed_dependencies
-                            .iter()
-                            .map(|s| alias_map.get(&s.clone()).unwrap_or(&s.clone()).clone())
+                            .into_iter()
+                            .map(|s| alias_map.get(&s).cloned().unwrap_or(s))
                             .collect(),
                         allowed_external_dependencies: component
-                            .allowed_external_dependencies
-                            .clone(),
+                            .allowed_external_dependencies,
                     }),
                     Some(RuleType::MustNotDependentOnAnything) => {
                         Box::new(MustNotDependOnAnythingRule {
-                            subject: alias_map.get(alias).unwrap().clone(),
+                            subject: alias_map.get(&alias).unwrap().clone(),
                             allowed_external_dependencies: component
-                                .allowed_external_dependencies
-                                .clone(),
+                                .allowed_external_dependencies,
                         })
                     }
                     None => panic!("This should never happen"),
