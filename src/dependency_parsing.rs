@@ -171,10 +171,7 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         .find(|ancestor| ancestor.join("Cargo.toml").exists());
 
     if crate_root.is_none() {
-        return Err(format!(
-            "File is not part of a Rust crate: {}",
-            file_path
-        ));
+        return Err(format!("File is not part of a Rust crate: {}", file_path));
     }
 
     let crate_root = crate_root.unwrap();
@@ -241,7 +238,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
     Ok(format!("{}::{}", crate_name, module_path))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,10 +252,12 @@ mod tests {
 
     #[test]
     fn test_get_module_on_a_random_file() {
-        let module =
-            get_module("./examples/workspace_project/assets/file_1.txt");
+        let module = get_module("./examples/workspace_project/assets/file_1.txt");
 
-        assert_eq!(module, Err("Invalid file type: expected a Rust file (.rs), found 'txt'".to_string()));
+        assert_eq!(
+            module,
+            Err("Invalid file type: expected a Rust file (.rs), found 'txt'".to_string())
+        );
     }
 
     #[test]

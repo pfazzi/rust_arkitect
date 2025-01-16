@@ -69,7 +69,7 @@ impl Rule for MustNotDependOnAnythingRule {
     fn is_applicable(&self, file: &str) -> bool {
         match get_module(file) {
             Ok(module) => is_child(self.subject.clone(), module),
-            Err(_) => false
+            Err(_) => false,
         }
     }
 }
@@ -165,8 +165,8 @@ impl Rule for MayDependOnRule {
                     orange.paint(module.clone())
                 );
                 is_child(self.subject.clone(), module)
-            },
-            Err(_) => false
+            }
+            Err(_) => false,
         }
     }
 }
