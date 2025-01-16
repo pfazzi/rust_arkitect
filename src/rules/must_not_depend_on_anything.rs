@@ -1,0 +1,112 @@
+use crate::dependency_parsing::{get_dependencies_in_file, get_module};
+use crate::rules::rule::Rule;
+use crate::rules::utils::IsChild;
+use ansi_term::Color::RGB;
+use ansi_term::Style;
+use std::fmt::{Display, Formatter};
+
+#[derive(Debug)]
+pub struct MustNotDependOnAnythingRule {
+    pub(crate) subject: String,
+    pub(crate) allowed_external_dependencies: Vec<String>,
+}
+
+impl Display for MustNotDependOnAnythingRule {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut allowed_dependencies: Vec<String> = Vec::new();
+        allowed_dependencies.extend(self.allowed_external_dependencies.clone());
+        let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
+        if allowed_dependencies.is_empty() {
+            write!(
+                f,
+                "{} may not depend on any modules",
+                bold.paint(&self.subject),
+            )
+        } else {
+            write!(
+                f,
+                "{} may depend on {}",
+                bold.paint(&self.subject),
+                bold.paint("[".to_string() + &allowed_dependencies.join(", ") + "]")
+            )
+        }
+    }
+}
+
+impl Rule for MustNotDependOnAnythingRule {
+    fn apply(&self, file: &str) -> Result<(), String> {
+        let dependencies = get_dependencies_in_file(file);
+
+        let forbidden_dependencies: Vec<String> = dependencies
+            .iter()
+            .filter(|&dependency| {
+                !(dependency.is_child_of(&self.subject)
+                    || self
+                        .allowed_external_dependencies
+                        .iter()
+                        .any(|allowed| dependency.is_child_of(allowed)))
+            })
+            .cloned()
+            .collect();
+
+        if forbidden_dependencies.is_empty() {
+            Ok(())
+        } else {
+            let red = Style::new().fg(RGB(255, 0, 0)).bold();
+            Err(format!(
+                "Forbidden dependencies to {} in file://{}",
+                red.paint("[".to_string() + &forbidden_dependencies.join(", ") + "]"),
+                file
+            ))
+        }
+    }
+
+    fn is_applicable(&self, file: &str) -> bool {
+        get_module(file).unwrap().is_child_of(&self.subject)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
+
+    #[test]
+    fn test_display_must_not_depend_on_anything_no_dependencies() {
+        use ansi_term::Color::RGB;
+        use ansi_term::Style;
+
+        let rule = MustNotDependOnAnythingRule {
+            subject: "module_2".to_string(),
+            allowed_external_dependencies: vec![],
+        };
+
+        let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let expected = format!(
+            "{} may not depend on any modules",
+            bold_orange.paint("module_2")
+        );
+        assert_eq!(format!("{}", rule), expected);
+    }
+
+    #[test]
+    fn test_display_must_not_depend_on_anything_with_dependencies() {
+        use ansi_term::Color::RGB;
+        use ansi_term::Style;
+
+        let rule = MustNotDependOnAnythingRule {
+            subject: "module_1".to_string(),
+            allowed_external_dependencies: vec![
+                "dependency_1".to_string(),
+                "dependency_2".to_string(),
+            ],
+        };
+
+        let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let expected = format!(
+            "{} may depend on {}",
+            bold_orange.paint("module_1"),
+            bold_orange.paint("[dependency_1, dependency_2]")
+        );
+        assert_eq!(format!("{}", rule), expected);
+    }
+}

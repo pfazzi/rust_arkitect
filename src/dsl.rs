@@ -1,5 +1,7 @@
 use crate::engine::Engine;
-use crate::rules::{MayDependOnRule, MustNotDependOnAnythingRule, Rule};
+use crate::rules::may_depend_on::MayDependOnRule;
+use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
+use crate::rules::rule::Rule;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::Path;
