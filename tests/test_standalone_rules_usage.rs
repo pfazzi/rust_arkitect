@@ -2,7 +2,8 @@
 
 use rust_arkitect::dsl::Arkitect;
 use rust_arkitect::dsl::Project;
-use rust_arkitect::rules::Rule;
+use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
+use rust_arkitect::rules::rule::Rule;
 use std::fmt::{Display, Formatter};
 
 struct TestRule;
@@ -30,12 +31,24 @@ impl Rule for TestRule {
 }
 
 #[test]
-fn test_rule_execution() {
-    let project = Project::from_absolute_path(
-        "/Users/patrickfazzi/Projects/rust_arkitect/examples/sample_project",
-    );
+fn test_custom_rule_execution() {
+    let project = Project::new();
 
     let rule = Box::new(TestRule::new("my_crate", &["a:crate::a_module"]));
+
+    let result = Arkitect::ensure_that(project).complies_with(vec![rule]);
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_may_depend_on_standalone() {
+    let project = Project::new();
+
+    let rule = Box::new(MustNotDependOnRule::new(
+        "conversion::domain".to_string(),
+        vec!["a:crate::a_module".to_string()],
+    ));
 
     let result = Arkitect::ensure_that(project).complies_with(vec![rule]);
 

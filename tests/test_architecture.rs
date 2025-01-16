@@ -6,7 +6,7 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 fn test_architectural_rules() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../");
+    let project = Project::new();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()

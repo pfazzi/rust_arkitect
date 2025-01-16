@@ -20,18 +20,18 @@ fn test_vertical_slices_architecture_rules() {
 
         .finalize();
 
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert_eq!(result, Ok(()))
+    assert!(result.is_ok());
 }
 
 #[test]
 fn test_mvc_architecture_rules() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -50,14 +50,14 @@ fn test_mvc_architecture_rules() {
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert_eq!(result, Ok(()))
+    assert!(result.is_ok())
 }
 
 #[test]
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
