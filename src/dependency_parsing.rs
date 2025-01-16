@@ -89,13 +89,13 @@ fn collect_dependencies_from_tree(
         UseTree::Path(path) => {
             let ident = path.ident.to_string();
             if ident == "super" {
-                let parent_prefix = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
+                let super_module = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
 
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
                     current_module,
-                    parent_prefix,
+                    super_module,
                 );
             } else if ident == "crate" {
                 collect_dependencies_from_tree(
