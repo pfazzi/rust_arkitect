@@ -149,3 +149,111 @@ fn is_directory(path: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_workspace_valid() {
+        let workspace_path = "examples/workspace_project";
+
+        let result = is_workspace(workspace_path);
+        assert!(result.is_ok(), "Expected workspace to be valid, but got: {:?}", result);
+    }
+
+    #[test]
+    fn test_is_workspace_missing_cargo_toml() {
+        let invalid_workspace_path = ".github";
+
+        assert!(
+            !std::path::Path::new(invalid_workspace_path).join("Cargo.toml").exists(),
+            "The test requires the path '{}' to not have a Cargo.toml",
+            invalid_workspace_path
+        );
+
+        let result = is_workspace(invalid_workspace_path);
+        assert!(
+            result.is_err(),
+            "Expected workspace validation to fail, but got: {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap_err(),
+            format!(
+                "'{}' is not a valid Rust workspace (missing Cargo.toml)",
+                invalid_workspace_path
+            )
+        );
+    }
+
+    #[test]
+    fn test_is_workspace_missing_workspace_key() {
+        let invalid_workspace_path = "examples/sample_project";
+
+        assert!(
+            Path::new(invalid_workspace_path).join("Cargo.toml").exists(),
+            "The test requires the path '{}' to have a Cargo.toml",
+            invalid_workspace_path
+        );
+
+        let result = is_workspace(invalid_workspace_path);
+        assert!(
+            result.is_err(),
+            "Expected workspace validation to fail, but got: {:?}",
+            result
+        );
+        assert_eq!(
+            result.unwrap_err(),
+            format!(
+                "'{}' is not a Rust workspace (missing [workspace] key in Cargo.toml)",
+                invalid_workspace_path
+            )
+        );
+    }
+
+    #[test]
+    fn test_is_crate_valid() {
+        let valid_path = "examples/sample_project";
+
+        let result = is_crate(valid_path);
+        assert!(result.is_ok(), "Expected crate to be valid, but got: {:?}", result);
+    }
+
+    #[test]
+    fn test_is_crate_missing_cargo_toml() {
+        let valid_path = ".github";
+
+        let result = is_crate(valid_path);
+        assert!(
+            result.is_err(),
+            "Expected crate validation to fail, but got: {:?}",
+            result
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            format!(
+                "'{}' is not a valid Rust crate (missing Cargo.toml)",
+                valid_path
+            )
+        );
+    }
+
+    #[test]
+    fn test_is_crate_invalid_path() {
+        let invalid_path = "/invalid/path";
+        let result = is_crate(invalid_path);
+
+        assert!(
+            result.is_err(),
+            "Expected crate validation to fail, but got: {:?}",
+            result
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            format!("'{}' is not a valid directory", invalid_path)
+        );
+    }
+}

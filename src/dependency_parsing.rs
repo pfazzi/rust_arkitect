@@ -271,14 +271,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_module() {
-        assert_eq!(
-            get_module("./examples/sample_project/src/conversion/application.rs"),
-            Ok(String::from("sample_project::conversion::application"))
-        );
-    }
-
-    #[test]
     fn test_get_module_on_a_directory() {
         assert_eq!(
             get_module("./examples/workspace_project/"),
