@@ -1,7 +1,9 @@
 use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 fn project() -> Project {
-    Project::from_absolute_path("/Users/patrickfazzi/Projects/rust_arkitect/examples/workspace_project")
+    Project::from_absolute_path(
+        "/Users/patrickfazzi/Projects/rust_arkitect/examples/workspace_project",
+    )
 }
 
 #[test]
@@ -10,6 +12,10 @@ fn test_vertical_slices_architecture_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
+        .component("Contracts")
+            .located_at("contracts")
+            .must_not_depend_on_anything()
+
         .component("Conversion")
             .located_at("conversion")
             .may_depend_on(&["Contracts"])

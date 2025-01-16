@@ -7,15 +7,15 @@ fn test_vertical_slices_architecture_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .component("Conversion")
-            .located_at("crate::conversion")
+            .located_at("sample_project::conversion")
             .may_depend_on(&["Contracts"])
 
         .component("PolicyManagement")
-            .located_at("crate::policy_management")
+            .located_at("sample_project::policy_management")
             .may_depend_on(&["Contracts"])
 
         .component("Contracts")
-            .located_at("crate::contracts")
+            .located_at("sample_project::contracts")
             .must_not_depend_on_anything()
 
         .finalize();
@@ -36,15 +36,15 @@ fn test_mvc_architecture_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .component("Model")
-            .located_at("crate::policy_management::model")
+            .located_at("sample_project::policy_management::model")
             .must_not_depend_on_anything()
 
         .component("Repository")
-            .located_at("crate::policy_management::repository")
+            .located_at("sample_project::policy_management::repository")
             .may_depend_on(&["Model"])
 
         .component("Controller")
-            .located_at("crate::policy_management::controller")
+            .located_at("sample_project::policy_management::controller")
             .may_depend_on(&["Repository", "Model"])
         .finalize();
 
@@ -62,15 +62,16 @@ fn test_three_tier_architecture() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .component("Application")
-            .located_at("crate::conversion::application")
+            .located_at("sample_project::conversion::application")
+            .allow_external_dependencies(&["sample_project::contract"])
             .may_depend_on(&["Domain"])
 
         .component("Domain")
-            .located_at("crate::conversion::domain")
+            .located_at("sample_project::conversion::domain")
             .must_not_depend_on_anything()
 
         .component("Infrastructure")
-            .located_at("crate::conversion::infrastructure")
+            .located_at("sample_project::conversion::infrastructure")
             .may_depend_on(&["Domain", "Application"])
 
         .finalize();
