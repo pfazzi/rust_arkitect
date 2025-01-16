@@ -1,8 +1,10 @@
-use quote::ToTokens;
+use serde::de::Error;
+use std::collections::HashSet;
 use std::fs;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use syn::{File, Item, ItemUse, UseTree};
+use toml::Value;
 
 pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
     let content = match fs::read_to_string(path) {
@@ -15,21 +17,21 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
         Err(e) => panic!("Failed to parse file file://{}: {}", path, e),
     };
 
-    let module = get_module(path).unwrap();
-
-    get_dependencies_in_ast(ast, &module)
+    match get_module(path) {
+        Ok(module) => get_dependencies_in_ast(ast, &module),
+        Err(_e) => vec![],
+    }
 }
 
-fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix: &str) {
+fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: &str) {
     match item {
         Item::Use(ItemUse { tree, .. }) => {
-            collect_dependencies_from_tree(tree, dependencies, "", module_prefix);
+            collect_dependencies_from_tree(tree, dependencies, current_module, "");
         }
         Item::Mod(mod_item) => {
             if let Some((_, items)) = &mod_item.content {
-                let new_prefix = format!("{}::{}", module_prefix, mod_item.ident);
                 for sub_item in items.iter() {
-                    parse_module_item(sub_item, dependencies, &new_prefix);
+                    parse_module_item(sub_item, dependencies, current_module);
                 }
             }
         }
@@ -37,27 +39,27 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix:
     }
 }
 
-#[cfg(test)]
-fn get_dependencies_in_str(s: &str, super_module: &str) -> Vec<String> {
+#[allow(dead_code)]
+fn get_dependencies_in_str(s: &str, module: &str) -> Vec<String> {
     let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
     };
 
-    get_dependencies_in_ast(ast, super_module)
+    get_dependencies_in_ast(ast, module)
 }
 
-fn get_dependencies_in_ast(ast: File, module: &str) -> Vec<String> {
+fn get_dependencies_in_ast(ast: File, current_module: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
     for item in ast.items.iter() {
         match item {
             Item::Use(ItemUse { tree, .. }) => {
-                collect_dependencies_from_tree(tree, &mut dependencies, "", module);
+                collect_dependencies_from_tree(tree, &mut dependencies, current_module, "");
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
-                    let module = format!("{}::{}", module, mod_item.ident);
+                    let module = format!("{}::{}", current_module, mod_item.ident);
                     for sub_item in items.iter() {
                         parse_module_item(sub_item, &mut dependencies, &module);
                     }
@@ -67,55 +69,61 @@ fn get_dependencies_in_ast(ast: File, module: &str) -> Vec<String> {
         }
     }
 
-    dependencies
+    unique_values(dependencies)
+}
+
+fn unique_values<T: std::hash::Hash + Eq + Clone>(vec: Vec<T>) -> Vec<T> {
+    let mut unique_set = HashSet::new();
+    vec.into_iter()
+        .filter(|item| unique_set.insert(item.clone()))
+        .collect()
 }
 
 fn collect_dependencies_from_tree(
     tree: &UseTree,
     dependencies: &mut Vec<String>,
+    current_module: &str,
     prefix: &str,
-    parent_module: &str,
 ) {
+    let crate_name = current_module.split("::").next().unwrap_or("");
+
     match tree {
         UseTree::Path(path) => {
             let ident = path.ident.to_string();
-            let token = path.colon2_token.to_token_stream().to_string();
             if ident == "super" {
-                // Calcola il prefisso del modulo padre
-                let parent_prefix = parent_module.rsplit_once("::").map(|x| x.0).unwrap_or("");
+                let super_module = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
 
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    parent_prefix,
-                    parent_prefix,
+                    current_module,
+                    super_module,
                 );
             } else if ident == "crate" {
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    "crate",
-                    parent_module,
+                    current_module,
+                    crate_name,
                 );
             } else {
-                let new_prefix = if !prefix.is_empty() {
-                    format!("{}{}{}", prefix, token, ident)
+                let ident = if !prefix.is_empty() {
+                    format!("{}::{}", prefix, ident)
                 } else {
                     ident
                 };
-
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    &new_prefix,
-                    parent_module,
+                    current_module,
+                    ident.as_str(),
                 );
             }
         }
         UseTree::Group(group) => {
-            group.items.iter().for_each(|item| {
-                collect_dependencies_from_tree(item, dependencies, prefix, parent_module);
-            });
+            for item in group.items.iter() {
+                collect_dependencies_from_tree(item, dependencies, current_module, prefix);
+            }
         }
         UseTree::Name(name) => {
             let dep = format!("{}::{}", prefix, name.ident);
@@ -126,8 +134,8 @@ fn collect_dependencies_from_tree(
             dependencies.push(dep);
         }
         UseTree::Rename(rename) => {
-            let dep = format!("{}::{}", prefix, rename.ident);
-            dependencies.push(dep);
+            let ident = format!("{}::{}", prefix, rename.ident);
+            dependencies.push(ident);
         }
     }
 }
@@ -135,45 +143,107 @@ fn collect_dependencies_from_tree(
 pub fn get_module(file_path: &str) -> Result<String, String> {
     let path = Path::new(file_path);
 
-    // Trova il percorso relativo a `src`
-    let relative_path = path
-        .components()
-        .skip_while(|comp| comp.as_os_str() != "src")
-        .skip(1) // Salta "src"
-        .collect::<PathBuf>();
-
-    if relative_path.as_os_str().is_empty() {
+    if path.is_dir() {
         return Err(format!(
-            "Failed to find module path: prefix 'src' not found in {}",
+            "The specified path '{}' is a directory, not a file",
             file_path
         ));
     }
 
-    let mut without_extension = relative_path.with_extension("");
-
-    // Gestisce file speciali come `mod.rs` e `lib.rs`
-    if without_extension.file_name() == Some("mod".as_ref()) {
-        without_extension = without_extension
-            .parent()
-            .ok_or_else(|| format!("Failed to find parent for mod.rs in {}", file_path))?
-            .to_path_buf();
-    } else if without_extension.file_name() == Some("lib".as_ref()) {
-        return Ok("crate".to_string());
+    if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+        return Err(format!(
+            "Invalid file type: expected a Rust file (.rs), found '{}'",
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("unknown")
+        ));
     }
 
-    // Converte il percorso in formato modulo
-    let module_path = without_extension
-        .components()
-        .filter_map(|comp| comp.as_os_str().to_str())
-        .collect::<Vec<_>>()
-        .join("::");
+    let crate_root = path
+        .ancestors()
+        .find(|ancestor| ancestor.join("Cargo.toml").exists())
+        .ok_or_else(|| format!("File is not part of a Rust crate: {}", file_path))?;
 
-    Ok(format!("crate::{}", module_path))
+    let cargo_toml_path = crate_root.join("Cargo.toml");
+    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).map_err(|_| {
+        format!(
+            "Failed to read Cargo.toml in '{}'",
+            cargo_toml_path.display()
+        )
+    })?;
+    let crate_name = toml::from_str::<Value>(&cargo_toml_content)
+        .and_then(|parsed| {
+            parsed
+                .get("package")
+                .and_then(|pkg| pkg.get("name"))
+                .and_then(|name| name.as_str())
+                .map(str::to_string)
+                .ok_or_else(|| serde::de::Error::custom("Missing 'package.name' in Cargo.toml"))
+        })
+        .map_err(|err| format!("Failed to parse crate name: {}", err))?;
+
+    let relative_path = path.strip_prefix(crate_root).map_err(|_| {
+        format!(
+            "Failed to compute relative path for file '{}' in crate '{}'",
+            file_path,
+            crate_root.display()
+        )
+    })?;
+
+    let mut comps = relative_path.components().peekable();
+
+    if comps.clone().any(|c| c.as_os_str() == "src") {
+        while let Some(c) = comps.next() {
+            if c.as_os_str() == "src" {
+                break;
+            }
+        }
+    }
+
+    let mut parts = vec![];
+    for comp in comps {
+        let s = comp.as_os_str().to_str().unwrap_or_default();
+        parts.push(s.to_string());
+    }
+
+    if let Some(last) = parts.last_mut() {
+        if last.ends_with(".rs") {
+            *last = last.trim_end_matches(".rs").to_string();
+        }
+    }
+
+    if parts.is_empty() {
+        return Err(format!(
+            "Failed to determine module path for '{}'",
+            file_path
+        ));
+    }
+
+    let module_path = parts.join("::");
+    Ok(format!("{}::{}", crate_name, module_path))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_module() {
+        let module =
+            get_module("./examples/workspace_project/conversion/src/application.rs").unwrap();
+
+        assert_eq!(module, "conversion::application")
+    }
+
+    #[test]
+    fn test_get_module_on_a_random_file() {
+        let module = get_module("./examples/workspace_project/assets/file_1.txt");
+
+        assert_eq!(
+            module,
+            Err("Invalid file type: expected a Rust file (.rs), found 'txt'".to_string())
+        );
+    }
 
     #[test]
     pub fn test_parsing() {
@@ -182,25 +252,33 @@ mod tests {
         assert_eq!(
             dependencies,
             vec![
-                "crate::conversion::domain::domain_function_1",
-                "crate::conversion::domain::domain_function_2",
-                "crate::conversion::domain::domain_function_2",
+                "sample_project::contracts::external_services::service_call_one",
+                "sample_project::conversion::domain::domain_function_1",
+                "sample_project::conversion::domain::domain_function_2",
             ]
         );
     }
 
     #[test]
-    fn test_file_path() {
+    pub fn test_workspace_parsing() {
+        let dependencies =
+            get_dependencies_in_file("./examples/workspace_project/conversion/src/application.rs");
         assert_eq!(
-            get_module("./examples/sample_project/src/conversion/application.rs"),
-            Ok(String::from("crate::conversion::application"))
+            dependencies,
+            vec![
+                "conversion::domain::domain_function_1",
+                "conversion::domain::domain_function_2",
+            ]
         );
+    }
 
+    #[test]
+    fn test_get_module_on_a_directory() {
         assert_eq!(
-            get_module(
-                "/users/reandom/projects/rust_arkitect/sample_project/sample_project/src/conversion"
-            ),
-            Ok(String::from("crate::conversion"))
+            get_module("./examples/workspace_project/"),
+            Err(String::from(
+                "The specified path './examples/workspace_project/' is a directory, not a file"
+            ))
         );
     }
 
@@ -208,28 +286,28 @@ mod tests {
     fn test_dependencies() {
         let source = r#"
             use crate::{
-            application::{
-                container::{self, AcmeContainer},
-                geographic_info::{mock_geographic_info_default, GeographicInfoService},
-            },
-            domain::{
-                aggregate::quote::{FormType, ProductType, QuoteType, QuoteVersion},
-                Policy::{
-                    Policy, PolicyActive, PolicyActiveSubstatus, PolicyStatus,
-                    PolicySubstatusActive, PaymentMethod,
+                application::{
+                    container::{self, AcmeContainer},
+                    geographic_info::{mock_geographic_info_default, GeographicInfoService},
                 },
-                price::{PaymentFrequency, PriceValue},
-                save::{SavePurchasable, SaveStatus},
-                services::PolicyService,
-                types::UserType,
-            },
-            infrastructure::bridge::{
-                invoicing::{mock_invoicing_service_default, InvoicingService},
-                payment::{mock_payment_bridge, PaymentBridge},
-                s3_service::{mock_s3_service, S3Service},
-                antifraud::{mock_antifraud_service_default, AntifraudService},
-            },
-        };
+                domain::{
+                    aggregate::quote::{FormType, ProductType, QuoteType, QuoteVersion},
+                    Policy::{
+                        Policy, PolicyActive, PolicyActiveSubstatus, PolicyStatus,
+                        PolicySubstatusActive, PaymentMethod,
+                    },
+                    price::{PaymentFrequency, PriceValue},
+                    save::{SavePurchasable, SaveStatus},
+                    services::PolicyService,
+                    types::UserType,
+                },
+                infrastructure::bridge::{
+                    invoicing::{mock_invoicing_service_default, InvoicingService},
+                    payment::{mock_payment_bridge, PaymentBridge},
+                    s3_service::{mock_s3_service, S3Service},
+                    antifraud::{mock_antifraud_service_default, AntifraudService},
+                },
+            };
         "#;
 
         let dependencies = get_dependencies_in_str(source, "crate::domain");
@@ -271,18 +349,19 @@ mod tests {
     #[test]
     fn test_external_dependencies() {
         let source = r#"
-        use crate::dependency_parsing::{get_dependencies_in_file, get_module};
+        use crate::dependency_parsing::get_dependencies_in_file;
+        use crate::dependency_parsing::get_module;
         use ansi_term::Color::RGB;
         use ansi_term::Style;
         use log::debug;
         use std::fmt::{Display, Formatter};
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain");
+        let dependencies = get_dependencies_in_str(source, "my_app");
 
         let expected_dependencies = vec![
-            "crate::dependency_parsing::get_dependencies_in_file",
-            "crate::dependency_parsing::get_module",
+            "my_app::dependency_parsing::get_dependencies_in_file",
+            "my_app::dependency_parsing::get_module",
             "ansi_term::Color::RGB",
             "ansi_term::Style",
             "log::debug",
@@ -298,7 +377,7 @@ mod tests {
         assert_eq!(
             get_dependencies_in_file("./examples/sample_project/src/conversion/infrastructure.rs"),
             vec![String::from(
-                "crate::conversion::application::application_function"
+                "sample_project::conversion::application::application_function"
             )]
         );
     }
@@ -421,5 +500,12 @@ mod tests {
         let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
 
         assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_get_module_with_a_file_in_folder_without_src() {
+        let module = get_module("tests/test_architecture.rs");
+
+        assert_eq!("rust_arkitect::tests::test_architecture", module.unwrap());
     }
 }

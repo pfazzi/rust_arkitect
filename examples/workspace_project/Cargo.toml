@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "application",
+    "contracts",
+    "conversion",
+    "policy_management",
+    "tests"
+]

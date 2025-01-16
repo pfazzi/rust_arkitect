@@ -25,15 +25,15 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_architectural_rules() {
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     let rules = ArchitecturalRules::define()
         .component("Domain")
-            .located_at("crate::domain")
+            .located_at("my_project::domain")
             .allow_external_dependencies(&["std::fmt"])
             .must_not_depend_on_anything()
         .component("Application")
-            .located_at("crate::application")
+            .located_at("my_project::application")
             .may_depend_on(&["Domain"])
         .finalize();
 
@@ -70,20 +70,20 @@ You can define and test architectural rules:
 ```rust
 #[test]
 fn test_architecture_baseline() {
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     let rules = ArchitecturalRules::define()
         .component("Application")
-            .located_at("crate::application")
+            .located_at("my_project::application")
             .may_depend_on(&["Domain"])
 
         .component("Domain")
-            .located_at("crate::domain")
+            .located_at("my_project::domain")
             .allow_external_dependencies(&["std::fmt"])
             .must_not_depend_on_anything()
 
         .component("Infrastructure")
-            .located_at("crate::infrastructure")
+            .located_at("my_project::infrastructure")
             .allow_external_dependencies(&["serde"])
             .may_depend_on(&["Domain", "Application"])
 
@@ -126,8 +126,8 @@ RUST_LOG=error cargo test -- --nocapture
 ```
 Example Output:
 ```plaintext
-[2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule crate::event_sourcing may depend on [std::fmt] violated: forbidden dependencies to [crate::domain::events::event] in file:///users/random/projects/acme_project/src/event_sourcing/events.rs
-[2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule crate::utils may not depend on any modules violated: forbidden dependencies to [crate::infrastructure::redis::*] in file:///users/random/projects/acme_project/src/utils/refill.rs
+[2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule my_project::event_sourcing may depend on [std::fmt] violated: forbidden dependencies to [my_project::domain::events::event] in file:///users/random/projects/acme_project/src/event_sourcing/events.rs
+[2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule my_project::utils may not depend on any modules violated: forbidden dependencies to [my_project::infrastructure::redis::*] in file:///users/random/projects/acme_project/src/utils/refill.rs
 ```
 
 # 😇 Built with Its Own Rules

@@ -1,4 +1,5 @@
 mod architecture_rules_test;
+mod contracts;
 mod conversion;
 mod policy_management;
 
