@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -77,7 +78,14 @@ fn get_dependencies_in_ast(ast: File, current_module: String) -> Vec<String> {
         }
     }
 
-    dependencies
+    unique_values(dependencies)
+}
+
+fn unique_values<T: std::hash::Hash + Eq + Clone>(vec: Vec<T>) -> Vec<T> {
+    let mut unique_set = HashSet::new();
+    vec.into_iter()
+        .filter(|item| unique_set.insert(item.clone())) // Mantieni solo i valori non ancora visti
+        .collect()
 }
 
 fn collect_dependencies_from_tree(
@@ -266,8 +274,8 @@ mod tests {
         assert_eq!(
             dependencies,
             vec![
+                "sample_project::contracts::external_services::service_call_one",
                 "sample_project::conversion::domain::domain_function_1",
-                "sample_project::conversion::domain::domain_function_2",
                 "sample_project::conversion::domain::domain_function_2",
             ]
         );
