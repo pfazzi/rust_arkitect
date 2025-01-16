@@ -24,17 +24,12 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
 fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: &str) {
     match item {
         Item::Use(ItemUse { tree, .. }) => {
-            collect_dependencies_from_tree(
-                tree,
-                dependencies,
-                current_module.clone(),
-                ""
-            );
+            collect_dependencies_from_tree(tree, dependencies, current_module, "");
         }
         Item::Mod(mod_item) => {
             if let Some((_, items)) = &mod_item.content {
                 for sub_item in items.iter() {
-                    parse_module_item(sub_item, dependencies, current_module.clone());
+                    parse_module_item(sub_item, dependencies, current_module);
                 }
             }
         }
@@ -43,7 +38,7 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module
 }
 
 #[allow(dead_code)]
-fn get_dependencies_in_str(s: &str, module: String) -> Vec<String> {
+fn get_dependencies_in_str(s: &str, module: &str) -> Vec<String> {
     let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
@@ -58,12 +53,7 @@ fn get_dependencies_in_ast(ast: File, current_module: &str) -> Vec<String> {
     for item in ast.items.iter() {
         match item {
             Item::Use(ItemUse { tree, .. }) => {
-                collect_dependencies_from_tree(
-                    tree,
-                    &mut dependencies,
-                    current_module.clone(),
-                    "",
-                );
+                collect_dependencies_from_tree(tree, &mut dependencies, current_module, "");
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
@@ -99,10 +89,7 @@ fn collect_dependencies_from_tree(
         UseTree::Path(path) => {
             let ident = path.ident.to_string();
             if ident == "super" {
-                let parent_prefix = current_module
-                    .rsplitn(2, "::")
-                    .nth(1)
-                    .unwrap_or("");
+                let parent_prefix = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
 
                 collect_dependencies_from_tree(
                     path.tree.deref(),
@@ -119,7 +106,7 @@ fn collect_dependencies_from_tree(
                 );
             } else {
                 let ident = if !prefix.is_empty() {
-                    format!("{}::{}", prefix.clone(), ident)
+                    format!("{}::{}", prefix, ident)
                 } else {
                     ident
                 };
@@ -133,12 +120,7 @@ fn collect_dependencies_from_tree(
         }
         UseTree::Group(group) => {
             for item in group.items.iter() {
-                collect_dependencies_from_tree(
-                    item,
-                    dependencies,
-                    current_module.clone(),
-                    prefix.clone(),
-                );
+                collect_dependencies_from_tree(item, dependencies, current_module, prefix);
             }
         }
         UseTree::Name(name) => {
@@ -150,7 +132,7 @@ fn collect_dependencies_from_tree(
             dependencies.push(dep);
         }
         UseTree::Rename(rename) => {
-            let ident = format!("{}::{}", prefix.clone(), rename.ident);
+            let ident = format!("{}::{}", prefix, rename.ident);
             dependencies.push(ident);
         }
     }
@@ -287,7 +269,6 @@ mod tests {
             vec![
                 "conversion::domain::domain_function_1",
                 "conversion::domain::domain_function_2",
-                "conversion::domain::domain_function_2",
             ]
         );
     }
@@ -367,17 +348,19 @@ mod tests {
     #[test]
     fn test_external_dependencies() {
         let source = r#"
+        use crate::dependency_parsing::get_dependencies_in_file;
+        use crate::dependency_parsing::get_module;
         use ansi_term::Color::RGB;
         use ansi_term::Style;
         use log::debug;
         use std::fmt::{Display, Formatter};
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain");
+        let dependencies = get_dependencies_in_str(source, "my_app");
 
         let expected_dependencies = vec![
-            "crate::dependency_parsing::get_dependencies_in_file",
-            "crate::dependency_parsing::get_module",
+            "my_app::dependency_parsing::get_dependencies_in_file",
+            "my_app::dependency_parsing::get_module",
             "ansi_term::Color::RGB",
             "ansi_term::Style",
             "log::debug",

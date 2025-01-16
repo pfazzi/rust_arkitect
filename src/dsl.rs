@@ -252,14 +252,12 @@ impl ArchitecturalRules<ComponentDefined> {
                             .into_iter()
                             .map(|s| alias_map.get(&s).cloned().unwrap_or(s))
                             .collect(),
-                        allowed_external_dependencies: component
-                            .allowed_external_dependencies,
+                        allowed_external_dependencies: component.allowed_external_dependencies,
                     }),
                     Some(RuleType::MustNotDependentOnAnything) => {
                         Box::new(MustNotDependOnAnythingRule {
                             subject: alias_map.get(&alias).unwrap().clone(),
-                            allowed_external_dependencies: component
-                                .allowed_external_dependencies,
+                            allowed_external_dependencies: component.allowed_external_dependencies,
                         })
                     }
                     None => panic!("This should never happen"),
