@@ -67,9 +67,10 @@ impl Rule for MustNotDependOnAnythingRule {
     }
 
     fn is_applicable(&self, file: &str) -> bool {
-        let module = get_module(file);
-
-        is_child(self.subject.clone(), module.unwrap())
+        match get_module(file) {
+            Ok(module) => is_child(self.subject.clone(), module),
+            Err(_) => false
+        }
     }
 }
 
@@ -156,13 +157,17 @@ impl Rule for MayDependOnRule {
     fn is_applicable(&self, file: &str) -> bool {
         let orange = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         let green = Style::new().bold().fg(ansi_term::Color::RGB(0, 255, 0));
-        let module = get_module(file).unwrap();
-        debug!(
-            "File {} mapped to module {}",
-            green.paint(file),
-            orange.paint(module.clone())
-        );
-        is_child(self.subject.clone(), module)
+        match get_module(file) {
+            Ok(module) => {
+                debug!(
+                    "File {} mapped to module {}",
+                    green.paint(file),
+                    orange.paint(module.clone())
+                );
+                is_child(self.subject.clone(), module)
+            },
+            Err(_) => false
+        }
     }
 }
 

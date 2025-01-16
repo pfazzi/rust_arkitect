@@ -15,26 +15,27 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
         Err(e) => panic!("Failed to parse file file://{}: {}", path, e),
     };
 
-    let module = get_module(path).unwrap();
-
-    get_dependencies_in_ast(ast, module)
+    match get_module(path) {
+        Ok(module) => get_dependencies_in_ast(ast, module),
+        Err(_error) => vec![],
+    }
 }
 
-fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix: String) {
+fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: String) {
     match item {
         Item::Use(ItemUse { tree, .. }) => {
             collect_dependencies_from_tree(
                 tree,
                 dependencies,
+                current_module.clone(),
                 "".to_string(),
-                module_prefix.clone(),
             );
         }
         Item::Mod(mod_item) => {
             if let Some((_, items)) = &mod_item.content {
-                let new_prefix = format!("{}::{}", module_prefix, mod_item.ident);
+                let new_prefix = format!("{}::{}", current_module.clone(), mod_item.ident);
                 for sub_item in items.iter() {
-                    parse_module_item(sub_item, dependencies, new_prefix.clone());
+                    parse_module_item(sub_item, dependencies, current_module.clone());
                 }
             }
         }
@@ -42,16 +43,16 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix:
     }
 }
 
-fn get_dependencies_in_str(s: &str, super_module: String) -> Vec<String> {
+fn get_dependencies_in_str(s: &str, module: String) -> Vec<String> {
     let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
     };
 
-    get_dependencies_in_ast(ast, super_module)
+    get_dependencies_in_ast(ast, module)
 }
 
-fn get_dependencies_in_ast(ast: File, module: String) -> Vec<String> {
+fn get_dependencies_in_ast(ast: File, current_module: String) -> Vec<String> {
     let mut dependencies = Vec::new();
 
     for item in ast.items.iter() {
@@ -60,14 +61,14 @@ fn get_dependencies_in_ast(ast: File, module: String) -> Vec<String> {
                 collect_dependencies_from_tree(
                     tree,
                     &mut dependencies,
+                    current_module.clone(),
                     "".to_string(),
-                    module.clone(),
                 );
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
                     let ident = mod_item.ident.clone().to_string();
-                    let module = format!("{}::{}", module, ident);
+                    let module = format!("{}::{}", current_module, ident);
                     for sub_item in items.iter() {
                         parse_module_item(sub_item, &mut dependencies, module.clone());
                     }
@@ -83,16 +84,16 @@ fn get_dependencies_in_ast(ast: File, module: String) -> Vec<String> {
 fn collect_dependencies_from_tree(
     tree: &UseTree,
     dependencies: &mut Vec<String>,
+    current_module: String,
     prefix: String,
-    parent_module: String,
 ) {
+    let crate_name = current_module.split("::").next().unwrap_or("").to_string();
+
     match tree {
         UseTree::Path(path) => {
             let ident = path.ident.to_string();
-            let token = path.colon2_token.to_token_stream().to_string();
             if ident == "super" {
-                // Calcola il prefisso del modulo padre
-                let parent_prefix = parent_module
+                let parent_prefix = current_module
                     .rsplitn(2, "::")
                     .nth(1)
                     .unwrap_or("")
@@ -101,44 +102,43 @@ fn collect_dependencies_from_tree(
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
+                    current_module,
                     parent_prefix.clone(),
-                    parent_prefix,
                 );
             } else if ident == "crate" {
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    "crate".to_string(),
-                    parent_module,
+                    current_module,
+                    crate_name.clone(),
                 );
             } else {
-                let new_prefix = if !prefix.is_empty() {
-                    format!("{}{}{}", prefix, token, ident)
+                let ident = if !prefix.is_empty() {
+                    format!("{}::{}", prefix.clone(), ident)
                 } else {
-                    ident
+                    ident.clone()
                 };
-
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    new_prefix,
-                    parent_module,
+                    current_module,
+                    ident,
                 );
             }
         }
         UseTree::Group(group) => {
-            group.items.iter().for_each(|item| {
+            for item in group.items.iter() {
                 collect_dependencies_from_tree(
                     item,
                     dependencies,
+                    current_module.clone(),
                     prefix.clone(),
-                    parent_module.clone(),
                 );
-            });
+            }
         }
         UseTree::Name(name) => {
             let ident = name.ident.to_string();
-            let dep = format!("{}::{}", prefix, ident);
+            let dep = format!("{}::{}", prefix.clone(), ident);
             dependencies.push(dep);
         }
         UseTree::Glob(_) => {
@@ -147,8 +147,7 @@ fn collect_dependencies_from_tree(
         }
         UseTree::Rename(rename) => {
             let ident = rename.ident.to_string();
-            let dep = format!("{}::{}", prefix, ident);
-            dependencies.push(dep);
+            dependencies.push(format!("{}::{}", prefix.clone(), ident));
         }
     }
 }
@@ -156,21 +155,62 @@ fn collect_dependencies_from_tree(
 pub fn get_module(file_path: &str) -> Result<String, String> {
     let path = Path::new(file_path);
 
-    // Trova il percorso relativo a `src`
-    let relative_path = path
+    // Controlla se il file ha l'estensione .rs
+    if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
+        return Err(format!(
+            "Invalid file type: expected a Rust file (.rs), found '{}'",
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("unknown")
+        ));
+    }
+
+    // Trova la directory radice del crate cercando il Cargo.toml
+    let crate_root = path
+        .ancestors()
+        .find(|ancestor| ancestor.join("Cargo.toml").exists());
+
+    if crate_root.is_none() {
+        return Err(format!(
+            "File is not part of a Rust crate: {}",
+            file_path
+        ));
+    }
+
+    let crate_root = crate_root.unwrap();
+
+    // Controlla che la directory `src` esista
+    if !crate_root.join("src").is_dir() {
+        return Err(format!(
+            "Rust crate '{}' does not have a 'src' directory",
+            crate_root.display()
+        ));
+    }
+
+    // Trova il percorso relativo alla directory del crate
+    let relative_path = path.strip_prefix(crate_root).map_err(|_| {
+        format!(
+            "Failed to compute relative path for file '{}' in crate '{}'",
+            file_path,
+            crate_root.display()
+        )
+    })?;
+
+    // Cerca `src` nella struttura del percorso
+    let src_relative = relative_path
         .components()
         .skip_while(|comp| comp.as_os_str() != "src")
         .skip(1) // Salta "src"
         .collect::<PathBuf>();
 
-    if relative_path.as_os_str().is_empty() {
+    if src_relative.as_os_str().is_empty() {
         return Err(format!(
             "Failed to find module path: prefix 'src' not found in {}",
             file_path
         ));
     }
 
-    let mut without_extension = relative_path.with_extension("");
+    let mut without_extension = src_relative.with_extension("");
 
     // Gestisce file speciali come `mod.rs` e `lib.rs`
     if without_extension.file_name() == Some("mod".as_ref()) {
@@ -179,7 +219,11 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
             .ok_or_else(|| format!("Failed to find parent for mod.rs in {}", file_path))?
             .to_path_buf();
     } else if without_extension.file_name() == Some("lib".as_ref()) {
-        return Ok("crate".to_string());
+        let crate_name = crate_root
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| format!("Failed to determine crate name for {}", file_path))?;
+        return Ok(crate_name.to_string());
     }
 
     // Converte il percorso in formato modulo
@@ -189,12 +233,34 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         .collect::<Vec<_>>()
         .join("::");
 
-    Ok(format!("crate::{}", module_path))
+    let crate_name = crate_root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("Failed to determine crate name for {}", file_path))?;
+
+    Ok(format!("{}::{}", crate_name, module_path))
 }
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_module() {
+        let module =
+            get_module("./examples/workspace_project/conversion/src/application.rs").unwrap();
+
+        assert_eq!(module, "conversion::application")
+    }
+
+    #[test]
+    fn test_get_module_on_a_random_file() {
+        let module =
+            get_module("./examples/workspace_project/assets/file_1.txt");
+
+        assert_eq!(module, Err("Invalid file type: expected a Rust file (.rs), found 'txt'".to_string()));
+    }
 
     #[test]
     pub fn test_parsing() {
@@ -203,9 +269,23 @@ mod tests {
         assert_eq!(
             dependencies,
             vec![
-                "crate::conversion::domain::domain_function_1",
-                "crate::conversion::domain::domain_function_2",
-                "crate::conversion::domain::domain_function_2",
+                "sample_project::conversion::domain::domain_function_1",
+                "sample_project::conversion::domain::domain_function_2",
+                "sample_project::conversion::domain::domain_function_2",
+            ]
+        );
+    }
+
+    #[test]
+    pub fn test_workspace_parsing() {
+        let dependencies =
+            get_dependencies_in_file("./examples/workspace_project/conversion/src/application.rs");
+        assert_eq!(
+            dependencies,
+            vec![
+                "conversion::domain::domain_function_1",
+                "conversion::domain::domain_function_2",
+                "conversion::domain::domain_function_2",
             ]
         );
     }
@@ -214,14 +294,7 @@ mod tests {
     fn test_file_path() {
         assert_eq!(
             get_module("./examples/sample_project/src/conversion/application.rs"),
-            Ok(String::from("crate::conversion::application"))
-        );
-
-        assert_eq!(
-            get_module(
-                "/users/reandom/projects/rust_arkitect/sample_project/sample_project/src/conversion"
-            ),
-            Ok(String::from("crate::conversion"))
+            Ok(String::from("sample_project::conversion::application"))
         );
     }
 
@@ -229,61 +302,64 @@ mod tests {
     fn test_dependencies() {
         let source = r#"
             use crate::{
-            application::{
-                container::{self, AcmeContainer},
-                geographic_info::{mock_geographic_info_default, GeographicInfoService},
-            },
-            domain::{
-                aggregate::quote::{FormType, ProductType, QuoteType, QuoteVersion},
-                Policy::{
-                    Policy, PolicyActive, PolicyActiveSubstatus, PolicyStatus,
-                    PolicySubstatusActive, PaymentMethod,
+                application::{
+                    container::{self, AcmeContainer},
+                    geographic_info::{mock_geographic_info_default, GeographicInfoService},
                 },
-                price::{PaymentFrequency, PriceValue},
-                save::{SavePurchasable, SaveStatus},
-                services::PolicyService,
-                types::UserType,
-            },
-            infrastructure::bridge::{
-                invoicing::{mock_invoicing_service_default, InvoicingService},
-                payment::{mock_payment_bridge, PaymentBridge},
-                s3_service::{mock_s3_service, S3Service},
-                antifraud::{mock_antifraud_service_default, AntifraudService},
-            },
-        };
+                domain::{
+                    aggregate::quote::{FormType, ProductType, QuoteType, QuoteVersion},
+                    Policy::{
+                        Policy, PolicyActive, PolicyActiveSubstatus, PolicyStatus,
+                        PolicySubstatusActive, PaymentMethod,
+                    },
+                    price::{PaymentFrequency, PriceValue},
+                    save::{SavePurchasable, SaveStatus},
+                    services::PolicyService,
+                    types::UserType,
+                },
+                infrastructure::bridge::{
+                    invoicing::{mock_invoicing_service_default, InvoicingService},
+                    payment::{mock_payment_bridge, PaymentBridge},
+                    s3_service::{mock_s3_service, S3Service},
+                    antifraud::{mock_antifraud_service_default, AntifraudService},
+                },
+            };
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain".to_string());
+        let dependencies = get_dependencies_in_str(source, "my_application::domain".to_string());
 
         let expected_dependencies = vec![
-            "crate::application::container::self".to_string(),
-            "crate::application::container::AcmeContainer".to_string(),
-            "crate::application::geographic_info::mock_geographic_info_default".to_string(),
-            "crate::application::geographic_info::GeographicInfoService".to_string(),
-            "crate::domain::aggregate::quote::FormType".to_string(),
-            "crate::domain::aggregate::quote::ProductType".to_string(),
-            "crate::domain::aggregate::quote::QuoteType".to_string(),
-            "crate::domain::aggregate::quote::QuoteVersion".to_string(),
-            "crate::domain::Policy::Policy".to_string(),
-            "crate::domain::Policy::PolicyActive".to_string(),
-            "crate::domain::Policy::PolicyActiveSubstatus".to_string(),
-            "crate::domain::Policy::PolicyStatus".to_string(),
-            "crate::domain::Policy::PolicySubstatusActive".to_string(),
-            "crate::domain::Policy::PaymentMethod".to_string(),
-            "crate::domain::price::PaymentFrequency".to_string(),
-            "crate::domain::price::PriceValue".to_string(),
-            "crate::domain::save::SavePurchasable".to_string(),
-            "crate::domain::save::SaveStatus".to_string(),
-            "crate::domain::services::PolicyService".to_string(),
-            "crate::domain::types::UserType".to_string(),
-            "crate::infrastructure::bridge::invoicing::mock_invoicing_service_default".to_string(),
-            "crate::infrastructure::bridge::invoicing::InvoicingService".to_string(),
-            "crate::infrastructure::bridge::payment::mock_payment_bridge".to_string(),
-            "crate::infrastructure::bridge::payment::PaymentBridge".to_string(),
-            "crate::infrastructure::bridge::s3_service::mock_s3_service".to_string(),
-            "crate::infrastructure::bridge::s3_service::S3Service".to_string(),
-            "crate::infrastructure::bridge::antifraud::mock_antifraud_service_default".to_string(),
-            "crate::infrastructure::bridge::antifraud::AntifraudService".to_string(),
+            "my_application::application::container::self".to_string(),
+            "my_application::application::container::AcmeContainer".to_string(),
+            "my_application::application::geographic_info::mock_geographic_info_default"
+                .to_string(),
+            "my_application::application::geographic_info::GeographicInfoService".to_string(),
+            "my_application::domain::aggregate::quote::FormType".to_string(),
+            "my_application::domain::aggregate::quote::ProductType".to_string(),
+            "my_application::domain::aggregate::quote::QuoteType".to_string(),
+            "my_application::domain::aggregate::quote::QuoteVersion".to_string(),
+            "my_application::domain::Policy::Policy".to_string(),
+            "my_application::domain::Policy::PolicyActive".to_string(),
+            "my_application::domain::Policy::PolicyActiveSubstatus".to_string(),
+            "my_application::domain::Policy::PolicyStatus".to_string(),
+            "my_application::domain::Policy::PolicySubstatusActive".to_string(),
+            "my_application::domain::Policy::PaymentMethod".to_string(),
+            "my_application::domain::price::PaymentFrequency".to_string(),
+            "my_application::domain::price::PriceValue".to_string(),
+            "my_application::domain::save::SavePurchasable".to_string(),
+            "my_application::domain::save::SaveStatus".to_string(),
+            "my_application::domain::services::PolicyService".to_string(),
+            "my_application::domain::types::UserType".to_string(),
+            "my_application::infrastructure::bridge::invoicing::mock_invoicing_service_default"
+                .to_string(),
+            "my_application::infrastructure::bridge::invoicing::InvoicingService".to_string(),
+            "my_application::infrastructure::bridge::payment::mock_payment_bridge".to_string(),
+            "my_application::infrastructure::bridge::payment::PaymentBridge".to_string(),
+            "my_application::infrastructure::bridge::s3_service::mock_s3_service".to_string(),
+            "my_application::infrastructure::bridge::s3_service::S3Service".to_string(),
+            "my_application::infrastructure::bridge::antifraud::mock_antifraud_service_default"
+                .to_string(),
+            "my_application::infrastructure::bridge::antifraud::AntifraudService".to_string(),
         ];
 
         assert_eq!(expected_dependencies, dependencies);
@@ -292,18 +368,15 @@ mod tests {
     #[test]
     fn test_external_dependencies() {
         let source = r#"
-        use crate::dependency_parsing::{get_dependencies_in_file, get_module};
         use ansi_term::Color::RGB;
         use ansi_term::Style;
         use log::debug;
         use std::fmt::{Display, Formatter};
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain".to_string());
+        let dependencies = get_dependencies_in_str(source, "app::domain".to_string());
 
         let expected_dependencies = vec![
-            "crate::dependency_parsing::get_dependencies_in_file".to_string(),
-            "crate::dependency_parsing::get_module".to_string(),
             "ansi_term::Color::RGB".to_string(),
             "ansi_term::Style".to_string(),
             "log::debug".to_string(),
@@ -319,7 +392,7 @@ mod tests {
         assert_eq!(
             get_dependencies_in_file("./examples/sample_project/src/conversion/infrastructure.rs"),
             vec![String::from(
-                "crate::conversion::application::application_function"
+                "sample_project::conversion::application::application_function"
             )]
         );
     }
@@ -430,9 +503,9 @@ mod tests {
             "#;
 
         let dependencies =
-            get_dependencies_in_str(source, "crate::application::use_case".to_string());
+            get_dependencies_in_str(source, "my_application::application::use_case".to_string());
 
-        let expected_dependencies = vec!["crate::application::use_case::*".to_string()];
+        let expected_dependencies = vec!["my_application::application::use_case::*".to_string()];
 
         assert_eq!(dependencies, expected_dependencies);
     }

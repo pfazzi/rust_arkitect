@@ -3,6 +3,7 @@ use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};
 use std::fs;
+use std::path::Path;
 
 pub(crate) fn run(absolute_path: &str, rules: Vec<Box<dyn Rule>>) -> Result<(), Vec<String>> {
     let mut violations = vec![];
