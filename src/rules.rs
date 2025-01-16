@@ -25,13 +25,13 @@ impl Display for MustNotDependOnAnythingRule {
             write!(
                 f,
                 "{} may not depend on any modules",
-                bold.paint(self.subject.clone()),
+                bold.paint(&self.subject),
             )
         } else {
             write!(
                 f,
                 "{} may depend on {}",
-                bold.paint(self.subject.clone()),
+                bold.paint(&self.subject),
                 bold.paint("[".to_string() + &allowed_dependencies.join(", ") + "]")
             )
         }
@@ -45,11 +45,11 @@ impl Rule for MustNotDependOnAnythingRule {
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
             .filter(|&dependency| {
-                !(is_child(self.subject.clone(), dependency.clone())
+                !(dependency.is_child_of(&self.subject)
                     || self
                         .allowed_external_dependencies
                         .iter()
-                        .any(|allowed| is_child(allowed.to_string(), dependency.clone())))
+                        .any(|allowed| dependency.is_child_of(allowed)))
             })
             .cloned()
             .collect();
@@ -67,15 +67,24 @@ impl Rule for MustNotDependOnAnythingRule {
     }
 
     fn is_applicable(&self, file: &str) -> bool {
-        match get_module(file) {
-            Ok(module) => is_child(self.subject.clone(), module),
-            Err(_) => false,
-        }
+        get_module(file).unwrap().is_child_of(&self.subject)
     }
 }
 
-fn is_child(module: String, child: String) -> bool {
-    child.starts_with(module.as_str())
+trait IsChild {
+    fn is_child_of(&self, module: &str) -> bool;
+}
+
+impl IsChild for str {
+    fn is_child_of(&self, module: &str) -> bool {
+        self.starts_with(module)
+    }
+}
+
+impl IsChild for String {
+    fn is_child_of(&self, module: &str) -> bool {
+        self.starts_with(module)
+    }
 }
 
 #[derive(Debug)]
@@ -95,13 +104,13 @@ impl Display for MayDependOnRule {
             write!(
                 f,
                 "{} may not depend on any modules",
-                bold.paint(self.subject.clone())
+                bold.paint(&self.subject)
             )
         } else {
             write!(
                 f,
                 "{} may depend on {}",
-                bold.paint(self.subject.clone()),
+                bold.paint(&self.subject),
                 bold.paint("[".to_string() + &allowed_dependencies.join(", ") + "]")
             )
         }
@@ -112,9 +121,9 @@ impl Rule for MayDependOnRule {
     fn apply(&self, file: &str) -> Result<(), String> {
         let module = get_module(file).unwrap();
         let subject = if module.len() > self.subject.len() {
-            self.subject.clone()
+            &self.subject
         } else {
-            module
+            &module
         };
 
         let dependencies = get_dependencies_in_file(file);
@@ -122,16 +131,16 @@ impl Rule for MayDependOnRule {
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
             .filter(|&dependency| {
-                let is_child_of_subject = is_child(subject.clone(), dependency.clone());
+                let is_child_of_subject = dependency.is_child_of(subject);
                 if !is_child_of_subject {
                     let is_allowed = self
                         .allowed_dependencies
                         .iter()
-                        .any(|ad| is_child(ad.clone(), dependency.clone()));
+                        .any(|ad| dependency.is_child_of(ad));
                     let is_allowed_external = self
                         .allowed_external_dependencies
                         .iter()
-                        .any(|ad| is_child(ad.clone(), dependency.clone()));
+                        .any(|ad| dependency.is_child_of(ad));
                     if !(is_allowed || is_allowed_external) {
                         return true;
                     }
@@ -157,17 +166,13 @@ impl Rule for MayDependOnRule {
     fn is_applicable(&self, file: &str) -> bool {
         let orange = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         let green = Style::new().bold().fg(ansi_term::Color::RGB(0, 255, 0));
-        match get_module(file) {
-            Ok(module) => {
-                debug!(
-                    "File {} mapped to module {}",
-                    green.paint(file),
-                    orange.paint(module.clone())
-                );
-                is_child(self.subject.clone(), module)
-            }
-            Err(_) => false,
-        }
+        let module = get_module(file).unwrap();
+        debug!(
+            "File {} mapped to module {}",
+            green.paint(file),
+            orange.paint(&module)
+        );
+        module.is_child_of(&self.subject)
     }
 }
 

@@ -89,22 +89,15 @@ fn test_architecture_baseline() {
 
         .finalize();
 
-    let result = Arkitect::ensure_that(project).complies_with(rules);
-
     let baseline_violations = 30;
+    let result = Arkitect::ensure_that(project).with_baseline(baseline_violations).complies_with(rules);
 
-    match result {
-        Ok(_) => panic!("Expected at least {} violations, but found none!", baseline_violations),
-        Err(violations) => {
-            let current_violations = violations.len();
-            assert!(
-                current_violations <= baseline_violations,
-                "Violations increased! Expected at most {}, found {}.",
-                baseline_violations,
-                current_violations
-            );
-        }
-    }
+    assert!(
+        result.is_ok(),
+        "Violations increased! Expected at most {}, found {}.",
+        baseline_violations,
+        current_violations
+    );
 }
 ```
 This test ensures that the number of violations does not exceed the established baseline, promoting continuous improvement in your codebase's architecture.
