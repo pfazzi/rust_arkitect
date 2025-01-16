@@ -73,7 +73,7 @@ fn get_dependencies_in_ast(ast: File, current_module: &str) -> Vec<String> {
 fn unique_values<T: std::hash::Hash + Eq + Clone>(vec: Vec<T>) -> Vec<T> {
     let mut unique_set = HashSet::new();
     vec.into_iter()
-        .filter(|item| unique_set.insert(item.clone())) // Mantieni solo i valori non ancora visti
+        .filter(|item| unique_set.insert(item.clone()))
         .collect()
 }
 
