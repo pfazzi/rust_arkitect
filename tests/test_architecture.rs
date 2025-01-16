@@ -3,10 +3,10 @@
 use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
-fn test_compliance() {
+fn test_architectural_rules() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()

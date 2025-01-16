@@ -27,7 +27,10 @@ impl<'a> Engine<'a> {
         } else if is_crate(self.absolute_path).is_ok() {
             self.validate_dir(self.absolute_path);
         } else {
-            panic!("The path '{}' is not a workspace or crate", self.absolute_path);
+            panic!(
+                "The path '{}' is not a workspace or crate",
+                self.absolute_path
+            );
         }
 
         self.violations
@@ -65,7 +68,8 @@ impl<'a> Engine<'a> {
     }
 
     fn validate_dir(&mut self, dir: &str) {
-        let entries = fs::read_dir(dir).unwrap_or_else(|_| panic!("Error reading root directory '{}'", dir));
+        let entries =
+            fs::read_dir(dir).unwrap_or_else(|_| panic!("Error reading root directory '{}'", dir));
 
         for file in entries {
             match file {
@@ -114,7 +118,10 @@ fn is_crate(path: &str) -> Result<(), String> {
     is_directory(path)?;
 
     if !dir_path.join("Cargo.toml").exists() {
-        return Err(format!("'{}' is not a valid Rust crate (missing Cargo.toml)", path));
+        return Err(format!(
+            "'{}' is not a valid Rust crate (missing Cargo.toml)",
+            path
+        ));
     }
 
     Ok(())
@@ -127,7 +134,10 @@ fn is_workspace(path: &str) -> Result<(), String> {
 
     let cargo_toml_path = dir_path.join("Cargo.toml");
     if !cargo_toml_path.exists() {
-        return Err(format!("'{}' is not a valid Rust workspace (missing Cargo.toml)", path));
+        return Err(format!(
+            "'{}' is not a valid Rust workspace (missing Cargo.toml)",
+            path
+        ));
     }
 
     let cargo_toml_content = fs::read_to_string(cargo_toml_path)
@@ -159,7 +169,11 @@ mod tests {
         let workspace_path = "examples/workspace_project";
 
         let result = is_workspace(workspace_path);
-        assert!(result.is_ok(), "Expected workspace to be valid, but got: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Expected workspace to be valid, but got: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -167,7 +181,9 @@ mod tests {
         let invalid_workspace_path = ".github";
 
         assert!(
-            !std::path::Path::new(invalid_workspace_path).join("Cargo.toml").exists(),
+            !Path::new(invalid_workspace_path)
+                .join("Cargo.toml")
+                .exists(),
             "The test requires the path '{}' to not have a Cargo.toml",
             invalid_workspace_path
         );
@@ -192,7 +208,9 @@ mod tests {
         let invalid_workspace_path = "examples/sample_project";
 
         assert!(
-            Path::new(invalid_workspace_path).join("Cargo.toml").exists(),
+            Path::new(invalid_workspace_path)
+                .join("Cargo.toml")
+                .exists(),
             "The test requires the path '{}' to have a Cargo.toml",
             invalid_workspace_path
         );
@@ -217,7 +235,11 @@ mod tests {
         let valid_path = "examples/sample_project";
 
         let result = is_crate(valid_path);
-        assert!(result.is_ok(), "Expected crate to be valid, but got: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "Expected crate to be valid, but got: {:?}",
+            result
+        );
     }
 
     #[test]

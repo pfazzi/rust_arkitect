@@ -1,8 +1,10 @@
+use serde::de::Error;
 use std::collections::HashSet;
 use std::fs;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use syn::{File, Item, ItemUse, UseTree};
+use toml::Value;
 
 pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
     let content = match fs::read_to_string(path) {
@@ -142,7 +144,10 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
     let path = Path::new(file_path);
 
     if path.is_dir() {
-        return Err(format!("The specified path '{}' is a directory, not a file", file_path));
+        return Err(format!(
+            "The specified path '{}' is a directory, not a file",
+            file_path
+        ));
     }
 
     if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
@@ -156,20 +161,26 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
 
     let crate_root = path
         .ancestors()
-        .find(|ancestor| ancestor.join("Cargo.toml").exists());
+        .find(|ancestor| ancestor.join("Cargo.toml").exists())
+        .ok_or_else(|| format!("File is not part of a Rust crate: {}", file_path))?;
 
-    if crate_root.is_none() {
-        return Err(format!("File is not part of a Rust crate: {}", file_path));
-    }
-
-    let crate_root = crate_root.unwrap();
-
-    if !crate_root.join("src").is_dir() {
-        return Err(format!(
-            "Rust crate '{}' does not have a 'src' directory",
-            crate_root.display()
-        ));
-    }
+    let cargo_toml_path = crate_root.join("Cargo.toml");
+    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).map_err(|_| {
+        format!(
+            "Failed to read Cargo.toml in '{}'",
+            cargo_toml_path.display()
+        )
+    })?;
+    let crate_name = toml::from_str::<Value>(&cargo_toml_content)
+        .and_then(|parsed| {
+            parsed
+                .get("package")
+                .and_then(|pkg| pkg.get("name"))
+                .and_then(|name| name.as_str())
+                .map(str::to_string)
+                .ok_or_else(|| serde::de::Error::custom("Missing 'package.name' in Cargo.toml"))
+        })
+        .map_err(|err| format!("Failed to parse crate name: {}", err))?;
 
     let relative_path = path.strip_prefix(crate_root).map_err(|_| {
         format!(
@@ -179,45 +190,36 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         )
     })?;
 
-    let src_relative = relative_path
-        .components()
-        .skip_while(|comp| comp.as_os_str() != "src")
-        .skip(1) // Salta "src"
-        .collect::<PathBuf>();
+    let mut comps = relative_path.components().peekable();
 
-    if src_relative.as_os_str().is_empty() {
+    if comps.clone().any(|c| c.as_os_str() == "src") {
+        while let Some(c) = comps.next() {
+            if c.as_os_str() == "src" {
+                break;
+            }
+        }
+    }
+
+    let mut parts = vec![];
+    for comp in comps {
+        let s = comp.as_os_str().to_str().unwrap_or_default();
+        parts.push(s.to_string());
+    }
+
+    if let Some(last) = parts.last_mut() {
+        if last.ends_with(".rs") {
+            *last = last.trim_end_matches(".rs").to_string();
+        }
+    }
+
+    if parts.is_empty() {
         return Err(format!(
-            "Failed to find module path: prefix 'src' not found in {}",
+            "Failed to determine module path for '{}'",
             file_path
         ));
     }
 
-    let mut without_extension = src_relative.with_extension("");
-
-    if without_extension.file_name() == Some("mod".as_ref()) {
-        without_extension = without_extension
-            .parent()
-            .ok_or_else(|| format!("Failed to find parent for mod.rs in {}", file_path))?
-            .to_path_buf();
-    } else if without_extension.file_name() == Some("lib".as_ref()) {
-        let crate_name = crate_root
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or_else(|| format!("Failed to determine crate name for {}", file_path))?;
-        return Ok(crate_name.to_string());
-    }
-
-    let module_path = without_extension
-        .components()
-        .filter_map(|comp| comp.as_os_str().to_str())
-        .collect::<Vec<_>>()
-        .join("::");
-
-    let crate_name = crate_root
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| format!("Failed to determine crate name for {}", file_path))?;
-
+    let module_path = parts.join("::");
     Ok(format!("{}::{}", crate_name, module_path))
 }
 
@@ -274,7 +276,9 @@ mod tests {
     fn test_get_module_on_a_directory() {
         assert_eq!(
             get_module("./examples/workspace_project/"),
-            Err(String::from("The specified path './examples/workspace_project/' is a directory, not a file"))
+            Err(String::from(
+                "The specified path './examples/workspace_project/' is a directory, not a file"
+            ))
         );
     }
 
@@ -496,5 +500,12 @@ mod tests {
         let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
 
         assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_get_module_with_a_file_in_folder_without_src() {
+        let module = get_module("tests/test_architecture.rs");
+
+        assert_eq!("rust_arkitect::tests::test_architecture", module.unwrap());
     }
 }
