@@ -1,4 +1,3 @@
-use quote::ToTokens;
 use std::fs;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -33,7 +32,6 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module
         }
         Item::Mod(mod_item) => {
             if let Some((_, items)) = &mod_item.content {
-                let new_prefix = format!("{}::{}", current_module.clone(), mod_item.ident);
                 for sub_item in items.iter() {
                     parse_module_item(sub_item, dependencies, current_module.clone());
                 }
@@ -43,6 +41,7 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module
     }
 }
 
+#[allow(dead_code)]
 fn get_dependencies_in_str(s: &str, module: String) -> Vec<String> {
     let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,

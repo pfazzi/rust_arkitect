@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
-    use std::result;
 
     #[test]
     fn test_compliance() {
