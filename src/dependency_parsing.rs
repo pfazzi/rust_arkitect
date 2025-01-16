@@ -141,7 +141,6 @@ fn collect_dependencies_from_tree(
 pub fn get_module(file_path: &str) -> Result<String, String> {
     let path = Path::new(file_path);
 
-    // Controlla se il file ha l'estensione .rs
     if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
         return Err(format!(
             "Invalid file type: expected a Rust file (.rs), found '{}'",
@@ -151,7 +150,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         ));
     }
 
-    // Trova la directory radice del crate cercando il Cargo.toml
     let crate_root = path
         .ancestors()
         .find(|ancestor| ancestor.join("Cargo.toml").exists());
@@ -162,7 +160,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
 
     let crate_root = crate_root.unwrap();
 
-    // Controlla che la directory `src` esista
     if !crate_root.join("src").is_dir() {
         return Err(format!(
             "Rust crate '{}' does not have a 'src' directory",
@@ -170,7 +167,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         ));
     }
 
-    // Trova il percorso relativo alla directory del crate
     let relative_path = path.strip_prefix(crate_root).map_err(|_| {
         format!(
             "Failed to compute relative path for file '{}' in crate '{}'",
@@ -179,7 +175,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         )
     })?;
 
-    // Cerca `src` nella struttura del percorso
     let src_relative = relative_path
         .components()
         .skip_while(|comp| comp.as_os_str() != "src")
@@ -195,7 +190,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
 
     let mut without_extension = src_relative.with_extension("");
 
-    // Gestisce file speciali come `mod.rs` e `lib.rs`
     if without_extension.file_name() == Some("mod".as_ref()) {
         without_extension = without_extension
             .parent()
@@ -209,7 +203,6 @@ pub fn get_module(file_path: &str) -> Result<String, String> {
         return Ok(crate_name.to_string());
     }
 
-    // Converte il percorso in formato modulo
     let module_path = without_extension
         .components()
         .filter_map(|comp| comp.as_os_str().to_str())
