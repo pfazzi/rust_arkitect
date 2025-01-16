@@ -1,4 +1,4 @@
-use crate::rules::Rule;
+use crate::rules::rule::Rule;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};
