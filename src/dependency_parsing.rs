@@ -17,24 +17,19 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
 
     let module = get_module(path).unwrap();
 
-    get_dependencies_in_ast(ast, module)
+    get_dependencies_in_ast(ast, &module)
 }
 
-fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix: String) {
+fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix: &str) {
     match item {
         Item::Use(ItemUse { tree, .. }) => {
-            collect_dependencies_from_tree(
-                tree,
-                dependencies,
-                "".to_string(),
-                module_prefix.clone(),
-            );
+            collect_dependencies_from_tree(tree, dependencies, "", module_prefix);
         }
         Item::Mod(mod_item) => {
             if let Some((_, items)) = &mod_item.content {
                 let new_prefix = format!("{}::{}", module_prefix, mod_item.ident);
                 for sub_item in items.iter() {
-                    parse_module_item(sub_item, dependencies, new_prefix.clone());
+                    parse_module_item(sub_item, dependencies, &new_prefix);
                 }
             }
         }
@@ -42,7 +37,8 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, module_prefix:
     }
 }
 
-fn get_dependencies_in_str(s: &str, super_module: String) -> Vec<String> {
+#[cfg(test)]
+fn get_dependencies_in_str(s: &str, super_module: &str) -> Vec<String> {
     let ast: File = match syn::parse_str(s) {
         Ok(ast) => ast,
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
@@ -51,25 +47,19 @@ fn get_dependencies_in_str(s: &str, super_module: String) -> Vec<String> {
     get_dependencies_in_ast(ast, super_module)
 }
 
-fn get_dependencies_in_ast(ast: File, module: String) -> Vec<String> {
+fn get_dependencies_in_ast(ast: File, module: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
     for item in ast.items.iter() {
         match item {
             Item::Use(ItemUse { tree, .. }) => {
-                collect_dependencies_from_tree(
-                    tree,
-                    &mut dependencies,
-                    "".to_string(),
-                    module.clone(),
-                );
+                collect_dependencies_from_tree(tree, &mut dependencies, "", module);
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
-                    let ident = mod_item.ident.clone().to_string();
-                    let module = format!("{}::{}", module, ident);
+                    let module = format!("{}::{}", module, mod_item.ident);
                     for sub_item in items.iter() {
-                        parse_module_item(sub_item, &mut dependencies, module.clone());
+                        parse_module_item(sub_item, &mut dependencies, &module);
                     }
                 }
             }
@@ -83,8 +73,8 @@ fn get_dependencies_in_ast(ast: File, module: String) -> Vec<String> {
 fn collect_dependencies_from_tree(
     tree: &UseTree,
     dependencies: &mut Vec<String>,
-    prefix: String,
-    parent_module: String,
+    prefix: &str,
+    parent_module: &str,
 ) {
     match tree {
         UseTree::Path(path) => {
@@ -92,23 +82,19 @@ fn collect_dependencies_from_tree(
             let token = path.colon2_token.to_token_stream().to_string();
             if ident == "super" {
                 // Calcola il prefisso del modulo padre
-                let parent_prefix = parent_module
-                    .rsplitn(2, "::")
-                    .nth(1)
-                    .unwrap_or("")
-                    .to_string();
+                let parent_prefix = parent_module.rsplit_once("::").map(|x| x.0).unwrap_or("");
 
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    parent_prefix.clone(),
+                    parent_prefix,
                     parent_prefix,
                 );
             } else if ident == "crate" {
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    "crate".to_string(),
+                    "crate",
                     parent_module,
                 );
             } else {
@@ -121,24 +107,18 @@ fn collect_dependencies_from_tree(
                 collect_dependencies_from_tree(
                     path.tree.deref(),
                     dependencies,
-                    new_prefix,
+                    &new_prefix,
                     parent_module,
                 );
             }
         }
         UseTree::Group(group) => {
             group.items.iter().for_each(|item| {
-                collect_dependencies_from_tree(
-                    item,
-                    dependencies,
-                    prefix.clone(),
-                    parent_module.clone(),
-                );
+                collect_dependencies_from_tree(item, dependencies, prefix, parent_module);
             });
         }
         UseTree::Name(name) => {
-            let ident = name.ident.to_string();
-            let dep = format!("{}::{}", prefix, ident);
+            let dep = format!("{}::{}", prefix, name.ident);
             dependencies.push(dep);
         }
         UseTree::Glob(_) => {
@@ -146,8 +126,7 @@ fn collect_dependencies_from_tree(
             dependencies.push(dep);
         }
         UseTree::Rename(rename) => {
-            let ident = rename.ident.to_string();
-            let dep = format!("{}::{}", prefix, ident);
+            let dep = format!("{}::{}", prefix, rename.ident);
             dependencies.push(dep);
         }
     }
@@ -253,37 +232,37 @@ mod tests {
         };
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate::domain");
 
         let expected_dependencies = vec![
-            "crate::application::container::self".to_string(),
-            "crate::application::container::AcmeContainer".to_string(),
-            "crate::application::geographic_info::mock_geographic_info_default".to_string(),
-            "crate::application::geographic_info::GeographicInfoService".to_string(),
-            "crate::domain::aggregate::quote::FormType".to_string(),
-            "crate::domain::aggregate::quote::ProductType".to_string(),
-            "crate::domain::aggregate::quote::QuoteType".to_string(),
-            "crate::domain::aggregate::quote::QuoteVersion".to_string(),
-            "crate::domain::Policy::Policy".to_string(),
-            "crate::domain::Policy::PolicyActive".to_string(),
-            "crate::domain::Policy::PolicyActiveSubstatus".to_string(),
-            "crate::domain::Policy::PolicyStatus".to_string(),
-            "crate::domain::Policy::PolicySubstatusActive".to_string(),
-            "crate::domain::Policy::PaymentMethod".to_string(),
-            "crate::domain::price::PaymentFrequency".to_string(),
-            "crate::domain::price::PriceValue".to_string(),
-            "crate::domain::save::SavePurchasable".to_string(),
-            "crate::domain::save::SaveStatus".to_string(),
-            "crate::domain::services::PolicyService".to_string(),
-            "crate::domain::types::UserType".to_string(),
-            "crate::infrastructure::bridge::invoicing::mock_invoicing_service_default".to_string(),
-            "crate::infrastructure::bridge::invoicing::InvoicingService".to_string(),
-            "crate::infrastructure::bridge::payment::mock_payment_bridge".to_string(),
-            "crate::infrastructure::bridge::payment::PaymentBridge".to_string(),
-            "crate::infrastructure::bridge::s3_service::mock_s3_service".to_string(),
-            "crate::infrastructure::bridge::s3_service::S3Service".to_string(),
-            "crate::infrastructure::bridge::antifraud::mock_antifraud_service_default".to_string(),
-            "crate::infrastructure::bridge::antifraud::AntifraudService".to_string(),
+            "crate::application::container::self",
+            "crate::application::container::AcmeContainer",
+            "crate::application::geographic_info::mock_geographic_info_default",
+            "crate::application::geographic_info::GeographicInfoService",
+            "crate::domain::aggregate::quote::FormType",
+            "crate::domain::aggregate::quote::ProductType",
+            "crate::domain::aggregate::quote::QuoteType",
+            "crate::domain::aggregate::quote::QuoteVersion",
+            "crate::domain::Policy::Policy",
+            "crate::domain::Policy::PolicyActive",
+            "crate::domain::Policy::PolicyActiveSubstatus",
+            "crate::domain::Policy::PolicyStatus",
+            "crate::domain::Policy::PolicySubstatusActive",
+            "crate::domain::Policy::PaymentMethod",
+            "crate::domain::price::PaymentFrequency",
+            "crate::domain::price::PriceValue",
+            "crate::domain::save::SavePurchasable",
+            "crate::domain::save::SaveStatus",
+            "crate::domain::services::PolicyService",
+            "crate::domain::types::UserType",
+            "crate::infrastructure::bridge::invoicing::mock_invoicing_service_default",
+            "crate::infrastructure::bridge::invoicing::InvoicingService",
+            "crate::infrastructure::bridge::payment::mock_payment_bridge",
+            "crate::infrastructure::bridge::payment::PaymentBridge",
+            "crate::infrastructure::bridge::s3_service::mock_s3_service",
+            "crate::infrastructure::bridge::s3_service::S3Service",
+            "crate::infrastructure::bridge::antifraud::mock_antifraud_service_default",
+            "crate::infrastructure::bridge::antifraud::AntifraudService",
         ];
 
         assert_eq!(expected_dependencies, dependencies);
@@ -299,16 +278,16 @@ mod tests {
         use std::fmt::{Display, Formatter};
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate::domain");
 
         let expected_dependencies = vec![
-            "crate::dependency_parsing::get_dependencies_in_file".to_string(),
-            "crate::dependency_parsing::get_module".to_string(),
-            "ansi_term::Color::RGB".to_string(),
-            "ansi_term::Style".to_string(),
-            "log::debug".to_string(),
-            "std::fmt::Display".to_string(),
-            "std::fmt::Formatter".to_string(),
+            "crate::dependency_parsing::get_dependencies_in_file",
+            "crate::dependency_parsing::get_module",
+            "ansi_term::Color::RGB",
+            "ansi_term::Style",
+            "log::debug",
+            "std::fmt::Display",
+            "std::fmt::Formatter",
         ];
 
         assert_eq!(expected_dependencies, dependencies);
@@ -330,9 +309,9 @@ mod tests {
         use crate::module::*;
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::module".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate::module");
 
-        let expected_dependencies = vec!["crate::module::*".to_string()];
+        let expected_dependencies = vec!["crate::module::*"];
 
         assert_eq!(expected_dependencies, dependencies);
     }
@@ -343,9 +322,9 @@ mod tests {
         use crate::module::original_name as alias_name;
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::module".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate::module");
 
-        let expected_dependencies = vec!["crate::module::original_name".to_string()];
+        let expected_dependencies = vec!["crate::module::original_name"];
 
         assert_eq!(expected_dependencies, dependencies);
     }
@@ -359,12 +338,9 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate");
 
-        let expected_dependencies = vec![
-            "crate::some::dependency".to_string(),
-            "crate::another::dependency".to_string(),
-        ];
+        let expected_dependencies = vec!["crate::some::dependency", "crate::another::dependency"];
 
         assert_eq!(dependencies, expected_dependencies);
     }
@@ -379,7 +355,7 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate");
 
         let expected_dependencies = vec!["crate::nested::dependency".to_string()];
 
@@ -392,7 +368,7 @@ mod tests {
         mod submodule {}
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate");
 
         let expected_dependencies: Vec<String> = vec![];
 
@@ -411,12 +387,9 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate");
 
-        let expected_dependencies = vec![
-            "crate::some::dependency".to_string(),
-            "crate::nested::dependency".to_string(),
-        ];
+        let expected_dependencies = vec!["crate::some::dependency", "crate::nested::dependency"];
 
         assert_eq!(dependencies, expected_dependencies);
     }
@@ -429,10 +402,9 @@ mod tests {
             }
             "#;
 
-        let dependencies =
-            get_dependencies_in_str(source, "crate::application::use_case".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate::application::use_case");
 
-        let expected_dependencies = vec!["crate::application::use_case::*".to_string()];
+        let expected_dependencies = vec!["crate::application::use_case::*"];
 
         assert_eq!(dependencies, expected_dependencies);
     }
@@ -444,13 +416,9 @@ mod tests {
             use super::query;
             "#;
 
-        let dependencies =
-            get_dependencies_in_str(source, "crate::application::use_case".to_string());
+        let dependencies = get_dependencies_in_str(source, "crate::application::use_case");
 
-        let expected_dependencies = vec![
-            "crate::some::dependency".to_string(),
-            "crate::application::query".to_string(),
-        ];
+        let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
 
         assert_eq!(dependencies, expected_dependencies);
     }
