@@ -25,7 +25,7 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_architectural_rules() {
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     let rules = ArchitecturalRules::define()
         .component("Domain")
@@ -70,7 +70,7 @@ You can define and test architectural rules:
 ```rust
 #[test]
 fn test_architecture_baseline() {
-    let project = Project::from_relative_path(file!(), "./../src");
+    let project = Project::from_relative_path(file!(), "./../");
 
     let rules = ArchitecturalRules::define()
         .component("Application")
