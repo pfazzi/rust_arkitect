@@ -1,11 +1,5 @@
 use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
-fn project() -> Project {
-    Project::from_absolute_path(
-        "/Users/patrickfazzi/Projects/rust_arkitect/examples/workspace_project",
-    )
-}
-
 #[test]
 fn test_vertical_slices_architecture_rules() {
     Arkitect::init_logger();
@@ -30,18 +24,18 @@ fn test_vertical_slices_architecture_rules() {
 
         .finalize();
 
-    let project = project();
+    let project = Project::new();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert_eq!(result, Ok(()))
+    assert!(result.is_ok());
 }
 
 #[test]
 fn test_mvc_architecture_rules() {
     Arkitect::init_logger();
 
-    let project = project();
+    let project = Project::new();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -60,14 +54,14 @@ fn test_mvc_architecture_rules() {
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
-    assert_eq!(result, Ok(()))
+    assert!(result.is_ok());
 }
 
 #[test]
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project = project();
+    let project =Project::new();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()

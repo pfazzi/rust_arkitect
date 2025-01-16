@@ -12,6 +12,15 @@ pub struct MustNotDependOnRule {
     pub(crate) forbidden_dependencies: Vec<String>,
 }
 
+impl MustNotDependOnRule {
+    pub fn new(subject: String, forbidden_dependencies: Vec<String>) -> Self {
+        Self {
+            subject,
+            forbidden_dependencies,
+        }
+    }
+}
+
 impl Display for MustNotDependOnRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let bold = Style::new().bold().fg(RGB(255, 165, 0));
