@@ -130,6 +130,59 @@ Example Output:
 [2024-12-30T12:17:08Z ERROR rust_arkitect::dsl] 🟥 Rule my_project::utils may not depend on any modules violated: forbidden dependencies to [my_project::infrastructure::redis::*] in file:///users/random/projects/acme_project/src/utils/refill.rs
 ```
 
+# 🧙‍♂️ Custom Rules
+Rust Arkitect allows you to create custom rules to test your project's architecture. These rules can be implemented by creating a struct and implementing the `Rule` trait for it. Below is an example of how to define and use a custom rule in a test:
+
+```rust
+use rust_arkitect::dsl::Arkitect;
+use rust_arkitect::dsl::Project;
+use rust_arkitect::rules::Rule;
+use std::fmt::{Display, Formatter};
+
+// Define a custom rule
+struct TestRule;
+
+impl TestRule {
+    fn new(_subject: &str, _dependencies: &[&str; 1]) -> TestRule {
+        Self {}
+    }
+}
+
+// Implement Display for the rule for better readability in logs
+impl Display for TestRule {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TestRule applied")
+    }
+}
+
+// Implement the Rule trait
+impl Rule for TestRule {
+    fn apply(&self, _file: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn is_applicable(&self, _file: &str) -> bool {
+        true
+    }
+}
+
+#[test]
+fn test_custom_rule_execution() {
+    // Define the project path
+    let project = Project::from_absolute_path(
+        "/Users/RandomUser/Projects/rust_arkitect/examples/sample_project",
+    );
+
+    // Create a new instance of the custom rule
+    let rule = Box::new(TestRule::new("my_crate", &["a:crate::a_module"]));
+
+    // Apply the rule to the project
+    let result = Arkitect::ensure_that(project).complies_with(vec![rule]);
+
+    // Assert that the rule passed
+    assert!(result.is_ok());
+}
+```
 # 😇 Built with Its Own Rules
 
 Rust Arkitect is built and tested using the same architectural rules it enforces. This ensures the tool remains consistent with the principles it promotes. You can explore the [architecture tests here](tests/test_architecture.rs) to see it in action.
