@@ -17,7 +17,7 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
 
     match get_module(path) {
         Ok(module) => get_dependencies_in_ast(ast, &module),
-        Err(_error) => vec![],
+        Err(_e) => vec![],
     }
 }
 
@@ -140,6 +140,10 @@ fn collect_dependencies_from_tree(
 
 pub fn get_module(file_path: &str) -> Result<String, String> {
     let path = Path::new(file_path);
+
+    if path.is_dir() {
+        return Err(format!("The specified path '{}' is a directory, not a file", file_path));
+    }
 
     if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
         return Err(format!(
@@ -267,10 +271,18 @@ mod tests {
     }
 
     #[test]
-    fn test_file_path() {
+    fn test_get_module() {
         assert_eq!(
             get_module("./examples/sample_project/src/conversion/application.rs"),
             Ok(String::from("sample_project::conversion::application"))
+        );
+    }
+
+    #[test]
+    fn test_get_module_on_a_directory() {
+        assert_eq!(
+            get_module("./examples/workspace_project/"),
+            Err(String::from("The specified path './examples/workspace_project/' is a directory, not a file"))
         );
     }
 
