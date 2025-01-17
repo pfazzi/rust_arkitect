@@ -1,4 +1,4 @@
-use crate::dsl_v2::project::Project;
+use crate::dsl::project::Project;
 use crate::engine::Engine;
 use crate::rules::rule::Rule;
 

@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-use rust_arkitect::dsl::Arkitect;
-use rust_arkitect::dsl::Project;
+use rust_arkitect::dsl::arkitect::Arkitect;
+use rust_arkitect::dsl::project::Project;
 use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
 use rust_arkitect::rules::rule::Rule;
 use std::fmt::{Display, Formatter};

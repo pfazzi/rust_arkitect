@@ -1,6 +1,8 @@
 #![cfg(test)]
 
-use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
+use rust_arkitect::dsl::architectural_rules::ArchitecturalRules;
+use rust_arkitect::dsl::arkitect::Arkitect;
+use rust_arkitect::dsl::project::Project;
 
 #[test]
 fn test_architectural_rules() {
@@ -10,27 +12,19 @@ fn test_architectural_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("DSL")
-            .located_at("crate::dsl")
-            .allow_external_dependencies(&["std::collections", "std::marker::PhantomData", "std::path"])
-            .may_depend_on(&["Engine", "Rules"])
+        .rules_for_module("crate::dsl")
+            .allow_dependencies_on(&["crate::engine", "crate::rules", "std::collections", "std::marker::PhantomData", "std::path"])
 
-        .component("Engine")
-            .located_at("crate::engine")
-            .allow_external_dependencies(&["ansi_term", "log", "std::fs"])
-            .may_depend_on(&["Rules"])
+        .rules_for_module("crate::engine")
+            .allow_dependencies_on(&["crate::rules", "ansi_term", "log", "std::fs"])
 
-        .component("Rules")
-            .located_at("crate::rules")
-            .allow_external_dependencies(&["ansi_term", "log", "std::fmt"])
-            .may_depend_on(&["DependencyParsing"])
+        .rules_for_module("crate::rules")
+            .allow_dependencies_on(&["crate::dependency_parsing", "ansi_term", "log", "std::fmt"])
 
-        .component("DependencyParsing")
-            .located_at("crate::dependency_parsing")
-            .allow_external_dependencies(&["syn", "quote", "std::path", "std::ops", "std::fs"])
-            .must_not_depend_on_anything()
+        .rules_for_crate("crate::dependency_parsing")
+            .allow_dependencies_on(&["syn", "quote", "std::path", "std::ops", "std::fs"])
 
-        .finalize();
+        .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 

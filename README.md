@@ -27,15 +27,18 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 fn test_architectural_rules() {
     let project = Project::new();
 
+    #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Domain")
-            .located_at("my_project::domain")
-            .allow_external_dependencies(&["std::fmt"])
+        .rules_for_module("sample_project::application")
+            .allow_dependencies_on(&["sample_project::domain"])
+
+        .rules_for_module("sample_project::domain")
             .must_not_depend_on_anything()
-        .component("Application")
-            .located_at("my_project::application")
-            .may_depend_on(&["Domain"])
-        .finalize();
+
+        .rules_for_module("sample_project::infrastructure")
+            .allow_dependencies_on(&["sample_project::domain", "sample_project::application"])
+
+        .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -72,25 +75,23 @@ You can define and test architectural rules:
 fn test_architecture_baseline() {
     let project = Project::new();
 
+    #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Application")
-            .located_at("my_project::application")
-            .may_depend_on(&["Domain"])
+        .rules_for_crate("application")
+            .allow_dependencies_on(&["domain"])
 
-        .component("Domain")
-            .located_at("my_project::domain")
-            .allow_external_dependencies(&["std::fmt"])
+        .rules_for_module("domain")
             .must_not_depend_on_anything()
 
-        .component("Infrastructure")
-            .located_at("my_project::infrastructure")
-            .allow_external_dependencies(&["serde"])
-            .may_depend_on(&["Domain", "Application"])
+        .rules_for_module("infrastructure")
+            .allow_dependencies_on(&["domain", "application"])
 
-        .finalize();
+        .build();
 
     let baseline_violations = 30;
-    let result = Arkitect::ensure_that(project).with_baseline(baseline_violations).complies_with(rules);
+    let result = Arkitect::ensure_that(project)
+        .with_baseline(baseline_violations)
+        .complies_with(rules);
 
     assert!(
         result.is_ok(),
@@ -134,11 +135,6 @@ Example Output:
 Rust Arkitect allows you to create custom rules to test your project's architecture. These rules can be implemented by creating a struct and implementing the `Rule` trait for it. Below is an example of how to define and use a custom rule in a test:
 
 ```rust
-use rust_arkitect::dsl::Arkitect;
-use rust_arkitect::dsl::Project;
-use rust_arkitect::rules::Rule;
-use std::fmt::{Display, Formatter};
-
 // Define a custom rule
 struct TestRule;
 
@@ -172,7 +168,7 @@ fn test_custom_rule_execution() {
     let project = Project::new();
 
     // Create a new instance of the custom rule
-    let rule = Box::new(TestRule::new("my_crate", &["a:crate::a_module"]));
+    let rule = Box::new(TestRule::new("my_crate", &["another_crate::a_module"]));
 
     // Apply the rule to the project
     let result = Arkitect::ensure_that(project).complies_with(vec![rule]);

@@ -1,7 +1,7 @@
 use crate::rules::rule::Rule;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
-use log::{debug, error, info, log};
+use log::{debug, error, info};
 use std::fs;
 use std::path::{Path, PathBuf};
 use toml::Value;

@@ -1,6 +1,6 @@
-use rust_arkitect::dsl_v2::architectural_rules::ArchitecturalRules;
-use rust_arkitect::dsl_v2::arkitect::Arkitect;
-use rust_arkitect::dsl_v2::project::Project;
+use rust_arkitect::dsl::architectural_rules::ArchitecturalRules;
+use rust_arkitect::dsl::arkitect::Arkitect;
+use rust_arkitect::dsl::project::Project;
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
