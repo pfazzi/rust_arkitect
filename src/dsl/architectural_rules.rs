@@ -89,7 +89,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn and(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
+    pub fn add_rule(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
         rules.push(rule);
 
@@ -151,7 +151,7 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn and(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
+    pub fn add_rule(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
         rules.push(rule);
 
@@ -232,7 +232,7 @@ mod tests {
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
                 .may_depend_on(&["my_app", "domain"])
-                .and(custom_rule)
+                .add_rule(custom_rule)
             .build();
 
         assert_eq!(rules.len(), 2);
