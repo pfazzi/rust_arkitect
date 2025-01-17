@@ -40,7 +40,7 @@ impl ArchitecturalRules<Begin> {
 }
 
 impl ArchitecturalRules<SubjectDefined> {
-    pub fn allow_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn may_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -57,7 +57,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn forbid_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn must_not_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -89,12 +89,9 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn with_custom_rules(
-        self,
-        custom_rules: Vec<Box<dyn Rule>>,
-    ) -> ArchitecturalRules<RulesDefined> {
+    pub fn and(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
-        rules.extend(custom_rules);
+        rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
@@ -105,7 +102,7 @@ impl ArchitecturalRules<SubjectDefined> {
 }
 
 impl ArchitecturalRules<RulesDefined> {
-    pub fn allow_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn may_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -122,7 +119,7 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn forbid_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn must_not_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -154,12 +151,9 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn with_custom_rules(
-        self,
-        custom_rules: Vec<Box<dyn Rule>>,
-    ) -> ArchitecturalRules<RulesDefined> {
+    pub fn and(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
-        rules.extend(custom_rules);
+        rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
@@ -198,7 +192,7 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
                 .rules_for_crate("application")
-                .allow_dependencies_on(&["std::fmt", "domain"])
+                .may_depend_on(&["std::fmt", "domain"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -209,7 +203,7 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
                 .rules_for_module("domain::services")
-                .allow_dependencies_on(&["std::sync", "application"])
+                .may_depend_on(&["std::sync", "application"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -220,7 +214,7 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_module("domain::models")
-                .forbid_dependencies_on(&["std::sync", "application"])
+                .must_not_depend_on(&["std::sync", "application"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -228,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_with_custom_rules() {
-        let custom_rule = Box::new(crate::rules::may_depend_on::MayDependOnRule {
+        let custom_rule = Box::new(MayDependOnRule {
             subject: "my_app".to_string(),
             allowed_dependencies: vec![],
             allowed_external_dependencies: vec![],
@@ -237,8 +231,8 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
-                .allow_dependencies_on(&["my_app", "domain"])
-                .with_custom_rules(vec![custom_rule])
+                .may_depend_on(&["my_app", "domain"])
+                .and(custom_rule)
             .build();
 
         assert_eq!(rules.len(), 2);
@@ -249,9 +243,9 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
-                .allow_dependencies_on(&["std::fmt", "domain"])
+                .may_depend_on(&["std::fmt", "domain"])
             .rules_for_module("domain::services")
-                .allow_dependencies_on(&["std::sync", "application"])
+                .may_depend_on(&["std::sync", "application"])
             .rules_for_module("domain::models")
                 .must_not_depend_on_anything()
             .build();

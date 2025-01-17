@@ -12,13 +12,13 @@ fn test_vertical_slices_architecture_rules() {
             .must_not_depend_on_anything()
 
         .rules_for_crate("conversion")
-            .allow_dependencies_on(&["contracts"])
+            .may_depend_on(&["contracts"])
 
         .rules_for_crate("policy_management")
-            .allow_dependencies_on(&["contracts"])
+            .may_depend_on(&["contracts"])
 
         .rules_for_crate("application")
-            .allow_dependencies_on(&["conversion", "policy_management"])
+            .may_depend_on(&["conversion", "policy_management"])
 
         .build();
 
@@ -41,10 +41,10 @@ fn test_mvc_architecture_rules() {
             .must_not_depend_on_anything()
 
         .rules_for_module("crate::policy_management::repository")
-            .allow_dependencies_on(&["crate::policy_management::model"])
+            .may_depend_on(&["crate::policy_management::model"])
 
         .rules_for_module("crate::policy_management::controller")
-            .allow_dependencies_on(&["crate::policy_management::repository", "crate::policy_management::model"])
+            .may_depend_on(&["crate::policy_management::repository", "crate::policy_management::model"])
 
         .build();
 
@@ -62,13 +62,13 @@ fn test_three_tier_architecture() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("crate::conversion::application")
-            .allow_dependencies_on(&["crate::conversion::domain"])
+            .may_depend_on(&["crate::conversion::domain"])
 
         .rules_for_module("crate::conversion::domain")
             .must_not_depend_on_anything()
 
         .rules_for_module("crate::conversion::infrastructure")
-            .allow_dependencies_on(&["crate::conversion::domain", "crate::conversion::application"])
+            .may_depend_on(&["crate::conversion::domain", "crate::conversion::application"])
         .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);

@@ -9,10 +9,10 @@ fn test_vertical_slices_architecture_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("sample_project::conversion")
-            .allow_dependencies_on(&["sample_project::contracts"])
+            .may_depend_on(&["sample_project::contracts"])
 
         .rules_for_module("sample_project::policy_management")
-            .allow_dependencies_on(&["sample_project::contracts"])
+            .may_depend_on(&["sample_project::contracts"])
 
         .rules_for_module("sample_project::contracts")
             .must_not_depend_on_anything()
@@ -38,10 +38,10 @@ fn test_mvc_architecture_rules() {
             .must_not_depend_on_anything()
 
         .rules_for_module("sample_project::policy_management::repository")
-            .allow_dependencies_on(&["sample_project::policy_management::model"])
+            .may_depend_on(&["sample_project::policy_management::model"])
 
         .rules_for_module("sample_project::policy_management::controller")
-            .allow_dependencies_on(&["sample_project::policy_management::repository", "sample_project::policy_management::model"])
+            .may_depend_on(&["sample_project::policy_management::repository", "sample_project::policy_management::model"])
 
         .build();
 
@@ -59,13 +59,13 @@ fn test_three_tier_architecture() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("sample_project::conversion::application")
-            .allow_dependencies_on(&["sample_project::conversion::domain", "sample_project::contract"])
+            .may_depend_on(&["sample_project::conversion::domain", "sample_project::contract"])
 
         .rules_for_module("sample_project::conversion::domain")
             .must_not_depend_on_anything()
 
         .rules_for_module("sample_project::conversion::infrastructure")
-            .allow_dependencies_on(&["sample_project::conversion::domain", "sample_project::conversion::application"])
+            .may_depend_on(&["sample_project::conversion::domain", "sample_project::conversion::application"])
 
         .build();
 

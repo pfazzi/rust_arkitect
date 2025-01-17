@@ -30,13 +30,13 @@ fn test_architectural_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("sample_project::application")
-            .allow_dependencies_on(&["sample_project::domain"])
+            .may_depend_on(&["sample_project::domain"])
 
         .rules_for_module("sample_project::domain")
             .must_not_depend_on_anything()
 
         .rules_for_module("sample_project::infrastructure")
-            .allow_dependencies_on(&["sample_project::domain", "sample_project::application"])
+            .may_depend_on(&["sample_project::domain", "sample_project::application"])
 
         .build();
 
@@ -78,13 +78,13 @@ fn test_architecture_baseline() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_crate("application")
-            .allow_dependencies_on(&["domain"])
+            .may_depend_on(&["domain"])
 
         .rules_for_module("domain")
             .must_not_depend_on_anything()
 
         .rules_for_module("infrastructure")
-            .allow_dependencies_on(&["domain", "application"])
+            .may_depend_on(&["domain", "application"])
 
         .build();
 
