@@ -146,9 +146,10 @@ mod tests {
 
     #[test]
     fn test_define_rules_for_crate() {
+        #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
-            .rules_for_crate("application")
-            .allow_dependencies_on(&["std::fmt", "domain"])
+                .rules_for_crate("application")
+                .allow_dependencies_on(&["std::fmt", "domain"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -156,9 +157,10 @@ mod tests {
 
     #[test]
     fn test_define_rules_for_module() {
+        #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
-            .rules_for_module("domain::services")
-            .allow_dependencies_on(&["std::sync", "application"])
+                .rules_for_module("domain::services")
+                .allow_dependencies_on(&["std::sync", "application"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -166,9 +168,10 @@ mod tests {
 
     #[test]
     fn test_module_isolation() {
+        #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_module("domain::models")
-            .forbid_dependencies_on(&["std::sync", "application"])
+                .forbid_dependencies_on(&["std::sync", "application"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -182,10 +185,11 @@ mod tests {
             allowed_external_dependencies: vec![],
         });
 
+        #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
-            .allow_dependencies_on(&["my_app", "domain"])
-            .with_custom_rules(vec![custom_rule])
+                .allow_dependencies_on(&["my_app", "domain"])
+                .with_custom_rules(vec![custom_rule])
             .build();
 
         assert_eq!(rules.len(), 2);
@@ -193,13 +197,14 @@ mod tests {
 
     #[test]
     fn test_complex_rule_set() {
+        #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
-            .allow_dependencies_on(&["std::fmt", "domain"])
+                .allow_dependencies_on(&["std::fmt", "domain"])
             .rules_for_module("domain::services")
-            .allow_dependencies_on(&["std::sync", "application"])
+                .allow_dependencies_on(&["std::sync", "application"])
             .rules_for_module("domain::models")
-            .must_not_depend_on_anything()
+                .must_not_depend_on_anything()
             .build();
 
         assert_eq!(rules.len(), 3);
