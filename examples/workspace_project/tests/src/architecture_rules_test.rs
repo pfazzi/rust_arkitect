@@ -1,4 +1,6 @@
-use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
+use rust_arkitect::dsl_v2::architectural_rules::ArchitecturalRules;
+use rust_arkitect::dsl_v2::arkitect::Arkitect;
+use rust_arkitect::dsl_v2::project::Project;
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
@@ -6,23 +8,19 @@ fn test_vertical_slices_architecture_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Contracts")
-            .located_at("contracts")
+        .rules_for_crate("contracts")
             .must_not_depend_on_anything()
 
-        .component("Conversion")
-            .located_at("conversion")
-            .may_depend_on(&["Contracts"])
+        .rules_for_crate("conversion")
+            .allow_dependencies_on(&["contracts"])
 
-        .component("PolicyManagement")
-            .located_at("policy_management")
-            .may_depend_on(&["Contracts"])
+        .rules_for_crate("policy_management")
+            .allow_dependencies_on(&["contracts"])
 
-        .component("Application")
-            .located_at("application")
-            .may_depend_on(&["Conversion", "PolicyManagement"])
+        .rules_for_crate("application")
+            .allow_dependencies_on(&["conversion", "policy_management"])
 
-        .finalize();
+        .build();
 
     let project = Project::new();
 
@@ -39,18 +37,16 @@ fn test_mvc_architecture_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Model")
-            .located_at("crate::policy_management::model")
+        .rules_for_module("crate::policy_management::model")
             .must_not_depend_on_anything()
 
-        .component("Repository")
-            .located_at("crate::policy_management::repository")
-            .may_depend_on(&["Model"])
+        .rules_for_module("crate::policy_management::repository")
+            .allow_dependencies_on(&["crate::policy_management::model"])
 
-        .component("Controller")
-            .located_at("crate::policy_management::controller")
-            .may_depend_on(&["Repository", "Model"])
-        .finalize();
+        .rules_for_module("crate::policy_management::controller")
+            .allow_dependencies_on(&["crate::policy_management::repository", "crate::policy_management::model"])
+
+        .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -61,23 +57,19 @@ fn test_mvc_architecture_rules() {
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project =Project::new();
+    let project = Project::new();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Application")
-            .located_at("crate::conversion::application")
-            .may_depend_on(&["Domain"])
+        .rules_for_module("crate::conversion::application")
+            .allow_dependencies_on(&["crate::conversion::domain"])
 
-        .component("Domain")
-            .located_at("crate::conversion::domain")
+        .rules_for_module("crate::conversion::domain")
             .must_not_depend_on_anything()
 
-        .component("Infrastructure")
-            .located_at("crate::conversion::infrastructure")
-            .may_depend_on(&["Domain", "Application"])
-
-        .finalize();
+        .rules_for_module("crate::conversion::infrastructure")
+            .allow_dependencies_on(&["crate::conversion::domain", "crate::conversion::application"])
+        .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 

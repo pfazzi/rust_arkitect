@@ -1,7 +1,7 @@
 use crate::rules::rule::Rule;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
-use log::{debug, error, info};
+use log::{debug, error, info, log};
 use std::fs;
 use std::path::{Path, PathBuf};
 use toml::Value;
@@ -23,8 +23,10 @@ impl<'a> Engine<'a> {
 
     pub(crate) fn get_violations(mut self) -> Vec<String> {
         if is_workspace(self.absolute_path).is_ok() {
+            info!("Workspace found: {}", self.absolute_path);
             self.validate_workspace(self.absolute_path);
         } else if is_crate(self.absolute_path).is_ok() {
+            info!("Crate found: {}", self.absolute_path);
             self.validate_dir(self.absolute_path);
         } else {
             panic!(
@@ -94,7 +96,7 @@ impl<'a> Engine<'a> {
             .and_then(|p| p.to_str().map(String::from))
             .unwrap_or_else(|| "Unknown file".to_string());
 
-        info!("🛠️Applying rules to {}", bold.paint(absolute_file_name));
+        info!("🛠Applying rules to {}", bold.paint(absolute_file_name));
         for rule in self.rules {
             if rule.is_applicable(file_name) {
                 debug!("🟢 Rule {} applied", rule);
