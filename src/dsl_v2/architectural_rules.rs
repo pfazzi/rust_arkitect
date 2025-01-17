@@ -3,12 +3,10 @@ use crate::rules::must_not_depend_on::MustNotDependOnRule;
 use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
 use crate::rules::rule::Rule;
 use std::marker::PhantomData;
-use std::ops::Deref;
 
 pub struct Begin;
 pub struct SubjectDefined;
-pub struct DependenciesDefined;
-pub struct CustomRulesDefined;
+pub struct RulesDefined;
 pub struct ArchitecturalRules<State> {
     state: PhantomData<State>,
     current_subject: Option<String>,
@@ -42,10 +40,7 @@ impl ArchitecturalRules<Begin> {
 }
 
 impl ArchitecturalRules<SubjectDefined> {
-    pub fn allow_dependencies_on(
-        self,
-        dependencies: &[&str],
-    ) -> ArchitecturalRules<DependenciesDefined> {
+    pub fn allow_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -62,10 +57,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn forbid_dependencies_on(
-        self,
-        dependencies: &[&str],
-    ) -> ArchitecturalRules<DependenciesDefined> {
+    pub fn forbid_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -81,7 +73,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn must_not_depend_on_anything(self) -> ArchitecturalRules<DependenciesDefined> {
+    pub fn must_not_depend_on_anything(self) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnAnythingRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_external_dependencies: vec![],
@@ -96,13 +88,76 @@ impl ArchitecturalRules<SubjectDefined> {
             rules,
         }
     }
-}
 
-impl ArchitecturalRules<DependenciesDefined> {
     pub fn with_custom_rules(
         self,
         custom_rules: Vec<Box<dyn Rule>>,
-    ) -> ArchitecturalRules<CustomRulesDefined> {
+    ) -> ArchitecturalRules<RulesDefined> {
+        let mut rules = self.rules;
+        rules.extend(custom_rules);
+
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: self.current_subject,
+            rules,
+        }
+    }
+}
+
+impl ArchitecturalRules<RulesDefined> {
+    pub fn allow_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+        let rule = Box::new(MayDependOnRule {
+            subject: self.current_subject.clone().unwrap(),
+            allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
+            allowed_external_dependencies: vec![],
+        });
+
+        let mut rules = self.rules;
+        rules.push(rule);
+
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: self.current_subject,
+            rules,
+        }
+    }
+
+    pub fn forbid_dependencies_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+        let rule = Box::new(MustNotDependOnRule {
+            subject: self.current_subject.clone().unwrap(),
+            forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
+        });
+
+        let mut rules = self.rules;
+        rules.push(rule);
+
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: self.current_subject,
+            rules,
+        }
+    }
+
+    pub fn must_not_depend_on_anything(self) -> ArchitecturalRules<RulesDefined> {
+        let rule = Box::new(MustNotDependOnAnythingRule {
+            subject: self.current_subject.clone().unwrap(),
+            allowed_external_dependencies: vec![],
+        });
+
+        let mut rules = self.rules;
+        rules.push(rule);
+
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: self.current_subject,
+            rules,
+        }
+    }
+
+    pub fn with_custom_rules(
+        self,
+        custom_rules: Vec<Box<dyn Rule>>,
+    ) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
         rules.extend(custom_rules);
 
@@ -129,12 +184,6 @@ impl ArchitecturalRules<DependenciesDefined> {
         }
     }
 
-    pub fn build(self) -> Vec<Box<dyn Rule>> {
-        self.rules
-    }
-}
-
-impl ArchitecturalRules<CustomRulesDefined> {
     pub fn build(self) -> Vec<Box<dyn Rule>> {
         self.rules
     }

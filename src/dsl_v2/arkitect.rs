@@ -1,12 +1,6 @@
 use crate::dsl_v2::project::Project;
 use crate::engine::Engine;
-use crate::rules::may_depend_on::MayDependOnRule;
-use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
 use crate::rules::rule::Rule;
-use std::collections::HashMap;
-use std::env;
-use std::marker::PhantomData;
-use std::path::Path;
 
 pub struct Arkitect {
     project: Project,
