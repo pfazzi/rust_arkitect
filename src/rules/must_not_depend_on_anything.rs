@@ -7,8 +7,8 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct MustNotDependOnAnythingRule {
-    pub(crate) subject: String,
-    pub(crate) allowed_external_dependencies: Vec<String>,
+    pub subject: String,
+    pub allowed_external_dependencies: Vec<String>,
 }
 
 impl Display for MustNotDependOnAnythingRule {
