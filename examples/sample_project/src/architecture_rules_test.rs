@@ -1,4 +1,6 @@
-use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
+use rust_arkitect::dsl_v2::architectural_rules::ArchitecturalRules;
+use rust_arkitect::dsl_v2::arkitect::Arkitect;
+use rust_arkitect::dsl_v2::project::Project;
 
 #[test]
 fn test_vertical_slices_architecture_rules() {
@@ -6,21 +8,18 @@ fn test_vertical_slices_architecture_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Conversion")
-            .located_at("sample_project::conversion")
-            .may_depend_on(&["Contracts"])
+        .rules_for_module("sample_project::conversion")
+            .allow_dependencies_on(&["sample_project::contracts"])
 
-        .component("PolicyManagement")
-            .located_at("sample_project::policy_management")
-            .may_depend_on(&["Contracts"])
+        .rules_for_module("sample_project::policy_management")
+            .allow_dependencies_on(&["sample_project::contracts"])
 
-        .component("Contracts")
-            .located_at("sample_project::contracts")
+        .rules_for_module("sample_project::contracts")
             .must_not_depend_on_anything()
 
-        .finalize();
+        .build();
 
-    let project = Project::from_relative_path(file!(), "./../");
+    let project = Project::new();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -35,18 +34,16 @@ fn test_mvc_architecture_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Model")
-            .located_at("sample_project::policy_management::model")
+        .rules_for_module("sample_project::policy_management::model")
             .must_not_depend_on_anything()
 
-        .component("Repository")
-            .located_at("sample_project::policy_management::repository")
-            .may_depend_on(&["Model"])
+        .rules_for_module("sample_project::policy_management::repository")
+            .allow_dependencies_on(&["sample_project::policy_management::model"])
 
-        .component("Controller")
-            .located_at("sample_project::policy_management::controller")
-            .may_depend_on(&["Repository", "Model"])
-        .finalize();
+        .rules_for_module("sample_project::policy_management::controller")
+            .allow_dependencies_on(&["sample_project::policy_management::repository", "sample_project::policy_management::model"])
+
+        .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -61,20 +58,16 @@ fn test_three_tier_architecture() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .component("Application")
-            .located_at("sample_project::conversion::application")
-            .allow_external_dependencies(&["sample_project::contract"])
-            .may_depend_on(&["Domain"])
+        .rules_for_module("sample_project::conversion::application")
+            .allow_dependencies_on(&["sample_project::conversion::domain", "sample_project::contract"])
 
-        .component("Domain")
-            .located_at("sample_project::conversion::domain")
+        .rules_for_module("sample_project::conversion::domain")
             .must_not_depend_on_anything()
 
-        .component("Infrastructure")
-            .located_at("sample_project::conversion::infrastructure")
-            .may_depend_on(&["Domain", "Application"])
+        .rules_for_module("sample_project::conversion::infrastructure")
+            .allow_dependencies_on(&["sample_project::conversion::domain", "sample_project::conversion::application"])
 
-        .finalize();
+        .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
