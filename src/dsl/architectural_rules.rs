@@ -44,7 +44,6 @@ impl ArchitecturalRules<SubjectDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
-            allowed_external_dependencies: vec![],
         });
 
         let mut rules = self.rules;
@@ -106,7 +105,6 @@ impl ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
-            allowed_external_dependencies: vec![],
         });
 
         let mut rules = self.rules;
@@ -225,7 +223,6 @@ mod tests {
         let custom_rule = Box::new(MayDependOnRule {
             subject: "my_app".to_string(),
             allowed_dependencies: vec![],
-            allowed_external_dependencies: vec![],
         });
 
         #[rustfmt::skip]
@@ -236,6 +233,22 @@ mod tests {
             .build();
 
         assert_eq!(rules.len(), 2);
+    }
+
+    #[test]
+    fn test_with_just_one_custom_rule() {
+        let may_depend_on = Box::new(MayDependOnRule {
+            subject: "my_app".to_string(),
+            allowed_dependencies: vec![],
+        });
+
+        #[rustfmt::skip]
+        let rules = ArchitecturalRules::define()
+            .rules_for_crate("application")
+                .rule(may_depend_on)
+            .build();
+
+        assert_eq!(rules.len(), 1);
     }
 
     #[test]

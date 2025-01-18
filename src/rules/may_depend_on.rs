@@ -10,14 +10,12 @@ use std::fmt::{Display, Formatter};
 pub struct MayDependOnRule {
     pub(crate) subject: String,
     pub(crate) allowed_dependencies: Vec<String>,
-    pub(crate) allowed_external_dependencies: Vec<String>,
 }
 
 impl Display for MayDependOnRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut allowed_dependencies: Vec<String> = Vec::new();
         allowed_dependencies.extend(self.allowed_dependencies.clone());
-        allowed_dependencies.extend(self.allowed_external_dependencies.clone());
         let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         if allowed_dependencies.is_empty() {
             write!(
@@ -56,11 +54,7 @@ impl Rule for MayDependOnRule {
                         .allowed_dependencies
                         .iter()
                         .any(|ad| dependency.is_child_of(ad));
-                    let is_allowed_external = self
-                        .allowed_external_dependencies
-                        .iter()
-                        .any(|ad| dependency.is_child_of(ad));
-                    if !(is_allowed || is_allowed_external) {
+                    if !is_allowed {
                         return true;
                     }
                 }
@@ -104,7 +98,6 @@ mod tests {
         let rule = MayDependOnRule {
             subject: "policy_management::domain".to_string(),
             allowed_dependencies: vec!["conversion::domain::domain_function_1".to_string()],
-            allowed_external_dependencies: vec!["chrono".to_string()],
         };
 
         let result =
@@ -120,8 +113,7 @@ mod tests {
 
         let rule = MayDependOnRule {
             subject: "module_3".to_string(),
-            allowed_dependencies: vec!["dependency_a".to_string()],
-            allowed_external_dependencies: vec!["dependency_b".to_string()],
+            allowed_dependencies: vec!["dependency_a".to_string(), "dependency_b".to_string()],
         };
 
         let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
@@ -141,7 +133,6 @@ mod tests {
         let rule = MayDependOnRule {
             subject: "module_4".to_string(),
             allowed_dependencies: vec![],
-            allowed_external_dependencies: vec![],
         };
 
         let bold_orange = Style::new().bold().fg(RGB(255, 165, 0));
