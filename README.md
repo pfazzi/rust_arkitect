@@ -153,11 +153,11 @@ impl Display for TestRule {
 
 // Implement the Rule trait
 impl Rule for TestRule {
-    fn apply(&self, _file: &str) -> Result<(), String> {
+    fn apply(&self, _file: &RustFile) -> Result<(), String> {
         Ok(())
     }
 
-    fn is_applicable(&self, _file: &str) -> bool {
+    fn is_applicable(&self, _file: &RustFile) -> bool {
         true
     }
 }
