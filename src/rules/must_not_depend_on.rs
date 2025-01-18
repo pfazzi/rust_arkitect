@@ -8,8 +8,8 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct MustNotDependOnRule {
-    pub(crate) subject: String,
-    pub(crate) forbidden_dependencies: Vec<String>,
+    pub subject: String,
+    pub forbidden_dependencies: Vec<String>,
 }
 
 impl MustNotDependOnRule {
@@ -18,6 +18,12 @@ impl MustNotDependOnRule {
             subject,
             forbidden_dependencies,
         }
+    }
+}
+
+impl From<MustNotDependOnRule> for Box<dyn Rule> {
+    fn from(rule: MustNotDependOnRule) -> Self {
+        Box::new(rule)
     }
 }
 

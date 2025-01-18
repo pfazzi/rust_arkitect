@@ -45,12 +45,12 @@ fn test_custom_rule_execution() {
 fn test_may_depend_on_standalone() {
     let project = Project::new();
 
-    let rule = Box::new(MustNotDependOnRule::new(
+    let rule = MustNotDependOnRule::new(
         "conversion::domain".to_string(),
         vec!["a:crate::a_module".to_string()],
-    ));
+    );
 
-    let result = Arkitect::ensure_that(project).complies_with(vec![rule]);
+    let result = Arkitect::ensure_that(project).complies_with(vec![rule.into()]);
 
     assert!(result.is_ok());
 }
