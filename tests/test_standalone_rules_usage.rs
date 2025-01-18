@@ -3,7 +3,7 @@
 use rust_arkitect::dsl::arkitect::Arkitect;
 use rust_arkitect::dsl::project::Project;
 use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
-use rust_arkitect::rules::rule::Rule;
+use rust_arkitect::rules::rule::{Rule, RustFile};
 use std::fmt::{Display, Formatter};
 
 struct TestRule;
@@ -21,11 +21,11 @@ impl Display for TestRule {
 }
 
 impl Rule for TestRule {
-    fn apply(&self, _file: &str) -> Result<(), String> {
+    fn apply(&self, _file: &RustFile) -> Result<(), String> {
         Ok(())
     }
 
-    fn is_applicable(&self, _file: &str) -> bool {
+    fn is_applicable(&self, _file: &RustFile) -> bool {
         true
     }
 }

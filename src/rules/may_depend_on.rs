@@ -1,5 +1,5 @@
-use crate::dependency_parsing::{get_dependencies_in_file, get_module};
-use crate::rules::rule::Rule;
+use crate::dependency_parsing::get_dependencies_in_ast;
+use crate::rules::rule::{Rule, RustFile};
 use crate::rules::utils::IsChild;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
@@ -8,15 +8,15 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct MayDependOnRule {
-    pub(crate) subject: String,
-    pub(crate) allowed_dependencies: Vec<String>,
+    pub subject: String,
+    pub allowed_dependencies: Vec<String>,
 }
 
 impl Display for MayDependOnRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut allowed_dependencies: Vec<String> = Vec::new();
         allowed_dependencies.extend(self.allowed_dependencies.clone());
-        let bold = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
+        let bold = Style::new().bold().fg(RGB(255, 165, 0));
         if allowed_dependencies.is_empty() {
             write!(
                 f,
@@ -35,15 +35,15 @@ impl Display for MayDependOnRule {
 }
 
 impl Rule for MayDependOnRule {
-    fn apply(&self, file: &str) -> Result<(), String> {
-        let module = get_module(file).unwrap();
+    fn apply(&self, file: &RustFile) -> Result<(), String> {
+        let module = &file.logical_path;
         let subject = if module.len() > self.subject.len() {
             &self.subject
         } else {
             &module
         };
 
-        let dependencies = get_dependencies_in_file(file);
+        let dependencies = get_dependencies_in_ast(&file.ast, &file.logical_path); // TODO: passa direttamente AST
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
@@ -69,23 +69,22 @@ impl Rule for MayDependOnRule {
             return Err(format!(
                 "Forbidden dependencies to {} in file://{}",
                 red.paint("[".to_string() + &forbidden_dependencies.join(", ") + "]"),
-                file
+                file.path
             ));
         }
 
         Ok(())
     }
 
-    fn is_applicable(&self, file: &str) -> bool {
+    fn is_applicable(&self, file: &RustFile) -> bool {
         let orange = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
         let green = Style::new().bold().fg(ansi_term::Color::RGB(0, 255, 0));
-        let module = get_module(file).unwrap();
         debug!(
             "File {} mapped to module {}",
-            green.paint(file),
-            orange.paint(&module)
+            green.paint(&file.path),
+            orange.paint(&file.logical_path)
         );
-        module.is_child_of(&self.subject)
+        file.logical_path.is_child_of(&self.subject)
     }
 }
 
@@ -100,8 +99,9 @@ mod tests {
             allowed_dependencies: vec!["conversion::domain::domain_function_1".to_string()],
         };
 
-        let result =
-            rule.apply("./../rust_arkitect/examples/sample_project/src/conversion/application.rs");
+        let result = rule.apply(&RustFile::from(
+            "./../rust_arkitect/examples/sample_project/src/conversion/application.rs",
+        ));
 
         assert!(result.is_err());
     }

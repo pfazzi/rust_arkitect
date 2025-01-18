@@ -1,5 +1,5 @@
-use crate::dependency_parsing::{get_dependencies_in_file, get_module};
-use crate::rules::rule::Rule;
+use crate::dependency_parsing::get_dependencies_in_file;
+use crate::rules::rule::{Rule, RustFile};
 use crate::rules::utils::IsChild;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
@@ -44,8 +44,8 @@ impl Display for MustNotDependOnRule {
 }
 
 impl Rule for MustNotDependOnRule {
-    fn apply(&self, file: &str) -> Result<(), String> {
-        let dependencies = get_dependencies_in_file(file);
+    fn apply(&self, file: &RustFile) -> Result<(), String> {
+        let dependencies = get_dependencies_in_file(&file.path);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
@@ -62,23 +62,22 @@ impl Rule for MustNotDependOnRule {
             return Err(format!(
                 "Forbidden dependencies to {} in file://{}",
                 red.paint("[".to_string() + &forbidden_dependencies.join(", ") + "]"),
-                file
+                file.path
             ));
         }
 
         Ok(())
     }
 
-    fn is_applicable(&self, file: &str) -> bool {
+    fn is_applicable(&self, file: &RustFile) -> bool {
         let orange = Style::new().bold().fg(RGB(255, 165, 0));
         let green = Style::new().bold().fg(RGB(0, 255, 0));
-        let module = get_module(file).unwrap();
         debug!(
             "File {} mapped to module {}",
-            green.paint(file),
-            orange.paint(&module)
+            green.paint(&file.path),
+            orange.paint(&file.logical_path)
         );
-        module.is_child_of(&self.subject)
+        file.logical_path.is_child_of(&self.subject)
     }
 }
 
@@ -93,8 +92,9 @@ mod tests {
             forbidden_dependencies: vec!["sample_project::contracts".to_string()],
         };
 
-        let result =
-            rule.apply("./../rust_arkitect/examples/sample_project/src/conversion/application.rs");
+        let result = rule.apply(&RustFile::from(
+            "./../rust_arkitect/examples/sample_project/src/conversion/application.rs",
+        ));
 
         assert!(result.is_err());
     }
@@ -106,8 +106,9 @@ mod tests {
             forbidden_dependencies: vec!["sample_project::policy_management".to_string()],
         };
 
-        let result =
-            rule.apply("./../rust_arkitect/examples/sample_project/src/conversion/application.rs");
+        let result = rule.apply(&RustFile::from(
+            "./../rust_arkitect/examples/sample_project/src/conversion/application.rs",
+        ));
 
         assert!(result.is_ok());
     }

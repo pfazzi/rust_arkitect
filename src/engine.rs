@@ -1,4 +1,4 @@
-use crate::rules::rule::Rule;
+use crate::rules::rule::{Rule, RustFile};
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};
@@ -90,17 +90,16 @@ impl<'a> Engine<'a> {
     fn apply_rules(&mut self, file: PathBuf) {
         let file_name = file.to_str().unwrap();
         let bold = Style::new().bold().fg(RGB(0, 255, 0));
-        let absolute_file_name = file
-            .canonicalize()
-            .ok()
-            .and_then(|p| p.to_str().map(String::from))
-            .unwrap_or_else(|| "Unknown file".to_string());
-
-        info!("🛠Applying rules to {}", bold.paint(absolute_file_name));
+        let file = RustFile::from(file_name);
+        info!(
+            "🛠Applying rules to {} ({})",
+            &file.logical_path,
+            bold.paint(&file.path)
+        );
         for rule in self.rules {
-            if rule.is_applicable(file_name) {
+            if rule.is_applicable(&file) {
                 debug!("🟢 Rule {} applied", rule);
-                match rule.apply(file_name) {
+                match rule.apply(&file) {
                     Ok(_) => info!("\u{2705} Rule {} respected", rule),
                     Err(e) => {
                         error!("🟥 Rule {} violated: {}", rule, e);
