@@ -25,7 +25,7 @@ use rust_arkitect::dsl::{ArchitecturalRules, Arkitect, Project};
 
 #[test]
 fn test_architectural_rules() {
-    let project = Project::new();
+    let project = Project::from_current_crate();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -73,7 +73,7 @@ You can define and test architectural rules:
 ```rust
 #[test]
 fn test_architecture_baseline() {
-    let project = Project::new();
+    let project = Project::from_current_workspace();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()

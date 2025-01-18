@@ -12,7 +12,19 @@ impl Project {
         }
     }
 
-    pub fn new() -> Project {
+    /// Creates a Project rooted at the crate's directory.
+    pub fn from_current_crate() -> Project {
+        let cargo_manifest_dir =
+            env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
+
+        Project {
+            project_root: cargo_manifest_dir,
+        }
+    }
+
+    /// Creates a Project rooted at the workspace's root directory.
+    /// Panics if the current crate is not part of a workspace.
+    pub fn from_current_workspace() -> Project {
         let cargo_manifest_dir =
             env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
 
@@ -32,11 +44,30 @@ impl Project {
             }
         }
 
-        Project {
-            project_root: cargo_manifest_dir,
-        }
+        panic!("Current crate is not part of a workspace or workspace root not found.");
     }
 
+    /// Method that creates a Project determining whether the current context is a workspace or crate.
+    pub fn new() -> Project {
+        let cargo_manifest_dir =
+            env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
+
+        let crate_path = Path::new(&cargo_manifest_dir);
+
+        if Self::is_workspace_root(crate_path) {
+            return Self::from_current_workspace();
+        }
+
+        if let Some(parent_path) = crate_path.parent() {
+            if Self::is_workspace_root(parent_path) {
+                return Self::from_current_workspace();
+            }
+        }
+
+        Self::from_current_crate()
+    }
+
+    /// Checks if the given path is a workspace root by inspecting its `Cargo.toml`.
     fn is_workspace_root(path: &Path) -> bool {
         let cargo_toml = path.join("Cargo.toml");
         if !cargo_toml.exists() {

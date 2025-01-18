@@ -22,7 +22,7 @@ fn test_vertical_slices_architecture_rules() {
 
         .build();
 
-    let project = Project::new();
+    let project = Project::from_current_workspace();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);
 
@@ -33,7 +33,7 @@ fn test_vertical_slices_architecture_rules() {
 fn test_mvc_architecture_rules() {
     Arkitect::init_logger();
 
-    let project = Project::new();
+    let project = Project::from_current_workspace();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
@@ -57,7 +57,7 @@ fn test_mvc_architecture_rules() {
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project = Project::new();
+    let project = Project::from_current_workspace();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()

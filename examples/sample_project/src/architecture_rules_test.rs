@@ -54,7 +54,7 @@ fn test_mvc_architecture_rules() {
 fn test_three_tier_architecture() {
     Arkitect::init_logger();
 
-    let project = Project::from_relative_path(file!(), "./../");
+    let project = Project::from_current_crate();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
