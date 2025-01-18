@@ -36,19 +36,12 @@ impl Display for MayDependOnRule {
 
 impl Rule for MayDependOnRule {
     fn apply(&self, file: &RustFile) -> Result<(), String> {
-        let module = &file.logical_path;
-        let subject = if module.len() > self.subject.len() {
-            &self.subject
-        } else {
-            &module
-        };
-
-        let dependencies = get_dependencies_in_ast(&file.ast, &file.logical_path); // TODO: passa direttamente AST
+        let dependencies = get_dependencies_in_ast(&file.ast, &file.logical_path);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
             .filter(|&dependency| {
-                let is_child_of_subject = dependency.is_child_of(subject);
+                let is_child_of_subject = dependency.is_child_of(&self.subject);
                 if !is_child_of_subject {
                     let is_allowed = self
                         .allowed_dependencies
