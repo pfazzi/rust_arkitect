@@ -17,7 +17,7 @@ pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
     };
 
     match get_module(path) {
-        Ok(module) => get_dependencies_in_ast(ast, &module),
+        Ok(module) => get_dependencies_in_ast(&ast, &module),
         Err(_e) => vec![],
     }
 }
@@ -45,10 +45,10 @@ fn get_dependencies_in_str(s: &str, module: &str) -> Vec<String> {
         Err(e) => panic!("Failed to parse string '{}': {}", s, e),
     };
 
-    get_dependencies_in_ast(ast, module)
+    get_dependencies_in_ast(&ast, module)
 }
 
-fn get_dependencies_in_ast(ast: File, current_module: &str) -> Vec<String> {
+pub fn get_dependencies_in_ast(ast: &File, current_module: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
     for item in ast.items.iter() {

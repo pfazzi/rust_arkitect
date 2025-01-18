@@ -1,5 +1,5 @@
-use crate::dependency_parsing::{get_dependencies_in_file, get_module};
-use crate::rules::rule::Rule;
+use crate::dependency_parsing::get_dependencies_in_file;
+use crate::rules::rule::{Rule, RustFile};
 use crate::rules::utils::IsChild;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
@@ -34,8 +34,8 @@ impl Display for MustNotDependOnAnythingRule {
 }
 
 impl Rule for MustNotDependOnAnythingRule {
-    fn apply(&self, file: &str) -> Result<(), String> {
-        let dependencies = get_dependencies_in_file(file);
+    fn apply(&self, file: &RustFile) -> Result<(), String> {
+        let dependencies = get_dependencies_in_file(&file.path);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
@@ -56,13 +56,13 @@ impl Rule for MustNotDependOnAnythingRule {
             Err(format!(
                 "Forbidden dependencies to {} in file://{}",
                 red.paint("[".to_string() + &forbidden_dependencies.join(", ") + "]"),
-                file
+                file.path
             ))
         }
     }
 
-    fn is_applicable(&self, file: &str) -> bool {
-        get_module(file).unwrap().is_child_of(&self.subject)
+    fn is_applicable(&self, file: &RustFile) -> bool {
+        file.logical_path.is_child_of(&self.subject)
     }
 }
 
