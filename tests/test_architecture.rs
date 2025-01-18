@@ -13,16 +13,16 @@ fn test_architectural_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("crate::dsl")
-            .may_depend_on(&["crate::engine", "crate::rules", "std::collections", "std::marker::PhantomData", "std::path"])
+            .it_may_depend_on(&["crate::engine", "crate::rules", "std::collections", "std::marker::PhantomData", "std::path"])
 
         .rules_for_module("crate::engine")
-            .may_depend_on(&["crate::rules", "ansi_term", "log", "std::fs"])
+            .it_may_depend_on(&["crate::rules", "ansi_term", "log", "std::fs"])
 
         .rules_for_module("crate::rules")
-            .may_depend_on(&["crate::dependency_parsing", "ansi_term", "log", "std::fmt"])
+            .it_may_depend_on(&["crate::dependency_parsing", "ansi_term", "log", "std::fmt"])
 
         .rules_for_crate("crate::dependency_parsing")
-            .may_depend_on(&["syn", "quote", "std::path", "std::ops", "std::fs"])
+            .it_may_depend_on(&["syn", "quote", "std::path", "std::ops", "std::fs"])
 
         .build();
 

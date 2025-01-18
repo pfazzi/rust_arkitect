@@ -13,6 +13,10 @@ pub struct ArchitecturalRules<State> {
     rules: Vec<Box<dyn Rule>>,
 }
 
+pub trait SubjectInjectableRuleBuilder {
+    fn for_subject(&self, subject: &str) -> Box<dyn Rule>;
+}
+
 impl ArchitecturalRules<Begin> {
     pub fn define() -> Self {
         Self {
@@ -40,7 +44,7 @@ impl ArchitecturalRules<Begin> {
 }
 
 impl ArchitecturalRules<SubjectDefined> {
-    pub fn may_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn it_may_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -56,7 +60,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn must_not_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn it_must_not_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -72,7 +76,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn must_not_depend_on_anything(self) -> ArchitecturalRules<RulesDefined> {
+    pub fn it_must_not_depend_on_anything(self) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnAnythingRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_external_dependencies: vec![],
@@ -88,9 +92,12 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn rule(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
+    pub fn it_must(
+        self,
+        rule: Box<dyn SubjectInjectableRuleBuilder>,
+    ) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
-        rules.push(rule);
+        rules.push(rule.for_subject(self.current_subject.as_ref().unwrap()));
 
         ArchitecturalRules {
             state: PhantomData,
@@ -101,7 +108,7 @@ impl ArchitecturalRules<SubjectDefined> {
 }
 
 impl ArchitecturalRules<RulesDefined> {
-    pub fn may_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn and_it_may_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MayDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -117,7 +124,7 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn must_not_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
+    pub fn and_must_not_depend_on(self, dependencies: &[&str]) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnRule {
             subject: self.current_subject.clone().unwrap(),
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
@@ -133,7 +140,7 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn must_not_depend_on_anything(self) -> ArchitecturalRules<RulesDefined> {
+    pub fn and_it_must_not_depend_on_anything(self) -> ArchitecturalRules<RulesDefined> {
         let rule = Box::new(MustNotDependOnAnythingRule {
             subject: self.current_subject.clone().unwrap(),
             allowed_external_dependencies: vec![],
@@ -149,9 +156,12 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn rule(self, rule: Box<dyn Rule>) -> ArchitecturalRules<RulesDefined> {
+    pub fn and_it_must(
+        self,
+        rule: Box<dyn SubjectInjectableRuleBuilder>,
+    ) -> ArchitecturalRules<RulesDefined> {
         let mut rules = self.rules;
-        rules.push(rule);
+        rules.push(rule.for_subject(self.current_subject.as_ref().unwrap()));
 
         ArchitecturalRules {
             state: PhantomData,
@@ -184,13 +194,15 @@ impl ArchitecturalRules<RulesDefined> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rules::rule::RustFile;
+    use std::fmt::{Display, Formatter};
 
     #[test]
     fn test_define_rules_for_crate() {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
                 .rules_for_crate("application")
-                .may_depend_on(&["std::fmt", "domain"])
+                .it_may_depend_on(&["std::fmt", "domain"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -201,7 +213,7 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
                 .rules_for_module("domain::services")
-                .may_depend_on(&["std::sync", "application"])
+                .it_may_depend_on(&["std::sync", "application"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -212,7 +224,7 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_module("domain::models")
-                .must_not_depend_on(&["std::sync", "application"])
+                .it_must_not_depend_on(&["std::sync", "application"])
             .build();
 
         assert_eq!(rules.len(), 1);
@@ -220,35 +232,14 @@ mod tests {
 
     #[test]
     fn test_with_custom_rules() {
-        let custom_rule = Box::new(MayDependOnRule {
-            subject: "my_app".to_string(),
-            allowed_dependencies: vec![],
-        });
-
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
-                .may_depend_on(&["my_app", "domain"])
-                .rule(custom_rule)
+                .it_may_depend_on(&["my_app", "domain"])
+                .and_it_must(NotContainAttribute::new("#[a]"))
             .build();
 
         assert_eq!(rules.len(), 2);
-    }
-
-    #[test]
-    fn test_with_just_one_custom_rule() {
-        let may_depend_on = Box::new(MayDependOnRule {
-            subject: "my_app".to_string(),
-            allowed_dependencies: vec![],
-        });
-
-        #[rustfmt::skip]
-        let rules = ArchitecturalRules::define()
-            .rules_for_crate("application")
-                .rule(may_depend_on)
-            .build();
-
-        assert_eq!(rules.len(), 1);
     }
 
     #[test]
@@ -256,13 +247,83 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
-                .may_depend_on(&["std::fmt", "domain"])
+                .it_may_depend_on(&["std::fmt", "domain"])
             .rules_for_module("domain::services")
-                .may_depend_on(&["std::sync", "application"])
+                .it_may_depend_on(&["std::sync", "application"])
             .rules_for_module("domain::models")
-                .must_not_depend_on_anything()
+                .it_must_not_depend_on_anything()
             .build();
 
         assert_eq!(rules.len(), 3);
+    }
+
+    #[allow(dead_code)]
+    struct MustNotContainAttributeRule {
+        subject: String,
+        attribute: String,
+    }
+
+    struct NotContainAttribute {
+        attribute: String,
+    }
+
+    impl NotContainAttribute {
+        fn new(attribute: &str) -> Box<dyn SubjectInjectableRuleBuilder> {
+            Box::new(NotContainAttribute {
+                attribute: attribute.to_string(),
+            })
+        }
+    }
+
+    impl Display for MustNotContainAttributeRule {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(f, "Example Rule")
+        }
+    }
+
+    impl Rule for MustNotContainAttributeRule {
+        fn apply(&self, _file: &RustFile) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn is_applicable(&self, _file: &RustFile) -> bool {
+            true
+        }
+    }
+
+    impl SubjectInjectableRuleBuilder for NotContainAttribute {
+        fn for_subject(&self, subject: &str) -> Box<dyn Rule> {
+            Box::new(MustNotContainAttributeRule {
+                subject: subject.to_string(),
+                attribute: self.attribute.clone(),
+            })
+        }
+    }
+
+    #[test]
+    fn test_subject_injection() {
+        #[rustfmt::skip]
+        let rules = ArchitecturalRules::define()
+            .rules_for_crate("a_crate")
+                .it_must(NotContainAttribute::new("#[test]"))
+                .and_it_must(NotContainAttribute::new("#[rustfmt::skip]"))
+                .and_it_may_depend_on(&["some::module"])
+            .rules_for_module("my_crate::utils")
+                .it_must_not_depend_on(&["some::module"])
+                .and_it_must(NotContainAttribute::new("#[test]"))
+            .rules_for_module("services::auth")
+                .it_may_depend_on(&["some::module"])
+                .and_it_must(NotContainAttribute::new("#[test]"))
+            .rules_for_module("domain::entities")
+                .it_must_not_depend_on_anything()
+                .and_it_must(NotContainAttribute::new("#[test]"))
+            .rules_for_module("models::product")
+                .it_must(NotContainAttribute::new("#[test]"))
+                .and_it_must_not_depend_on_anything()
+            .rules_for_module("a_crate::another_module")
+                .it_must_not_depend_on_anything()
+            .build();
+
+        assert_eq!(rules.len(), 12);
     }
 }
