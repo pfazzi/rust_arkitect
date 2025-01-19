@@ -1,25 +1,21 @@
+use crate::rules::rule::RustFile;
 use std::collections::HashSet;
 use std::fs;
 use std::ops::Deref;
-use std::path::Path;
 use syn::{File, Item, ItemUse, UseTree};
-use toml::Value;
 
-pub fn get_dependencies_in_file(path: &str) -> Vec<String> {
-    let content = match fs::read_to_string(path) {
+pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
+    let content = match fs::read_to_string(&file.path) {
         Ok(content) => content,
-        Err(e) => panic!("Failed to read file file://{}: {}", path, e),
+        Err(e) => panic!("Failed to read file file://{}: {}", file.path, e),
     };
 
     let ast = match syn::parse_file(&content) {
         Ok(ast) => ast,
-        Err(e) => panic!("Failed to parse file file://{}: {}", path, e),
+        Err(e) => panic!("Failed to parse file file://{}: {}", file.path, e),
     };
 
-    match get_module(path) {
-        Ok(module) => get_dependencies_in_ast(&ast, &module),
-        Err(_e) => vec![],
-    }
+    get_dependencies_in_ast(&ast, &file.logical_path)
 }
 
 fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: &str) {
@@ -48,17 +44,22 @@ fn get_dependencies_in_str(s: &str, module: &str) -> Vec<String> {
     get_dependencies_in_ast(&ast, module)
 }
 
-pub fn get_dependencies_in_ast(ast: &File, current_module: &str) -> Vec<String> {
+pub fn get_dependencies_in_ast(ast: &File, current_module_logical_path: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
     for item in ast.items.iter() {
         match item {
             Item::Use(ItemUse { tree, .. }) => {
-                collect_dependencies_from_tree(tree, &mut dependencies, current_module, "");
+                collect_dependencies_from_tree(
+                    tree,
+                    &mut dependencies,
+                    current_module_logical_path,
+                    "",
+                );
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
-                    let module = format!("{}::{}", current_module, mod_item.ident);
+                    let module = format!("{}::{}", current_module_logical_path, mod_item.ident);
                     for sub_item in items.iter() {
                         parse_module_item(sub_item, &mut dependencies, &module);
                     }
@@ -139,115 +140,15 @@ fn collect_dependencies_from_tree(
     }
 }
 
-pub fn get_module(file_path: &str) -> Result<String, String> {
-    let path = Path::new(file_path);
-
-    if path.is_dir() {
-        return Err(format!(
-            "The specified path '{}' is a directory, not a file",
-            file_path
-        ));
-    }
-
-    if path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
-        return Err(format!(
-            "Invalid file type: expected a Rust file (.rs), found '{}'",
-            path.extension()
-                .and_then(|ext| ext.to_str())
-                .unwrap_or("unknown")
-        ));
-    }
-
-    let crate_root = path
-        .ancestors()
-        .find(|ancestor| ancestor.join("Cargo.toml").exists())
-        .ok_or_else(|| format!("File is not part of a Rust crate: {}", file_path))?;
-
-    let cargo_toml_path = crate_root.join("Cargo.toml");
-    let cargo_toml_content = std::fs::read_to_string(&cargo_toml_path).map_err(|_| {
-        format!(
-            "Failed to read Cargo.toml in '{}'",
-            cargo_toml_path.display()
-        )
-    })?;
-    let crate_name = toml::from_str::<Value>(&cargo_toml_content)
-        .and_then(|parsed| {
-            parsed
-                .get("package")
-                .and_then(|pkg| pkg.get("name"))
-                .and_then(|name| name.as_str())
-                .map(str::to_string)
-                .ok_or_else(|| serde::de::Error::custom("Missing 'package.name' in Cargo.toml"))
-        })
-        .map_err(|err| format!("Failed to parse crate name: {}", err))?;
-
-    let relative_path = path.strip_prefix(crate_root).map_err(|_| {
-        format!(
-            "Failed to compute relative path for file '{}' in crate '{}'",
-            file_path,
-            crate_root.display()
-        )
-    })?;
-
-    let mut comps = relative_path.components().peekable();
-
-    if comps.clone().any(|c| c.as_os_str() == "src") {
-        while let Some(c) = comps.next() {
-            if c.as_os_str() == "src" {
-                break;
-            }
-        }
-    }
-
-    let mut parts = vec![];
-    for comp in comps {
-        let s = comp.as_os_str().to_str().unwrap_or_default();
-        parts.push(s.to_string());
-    }
-
-    if let Some(last) = parts.last_mut() {
-        if last.ends_with(".rs") {
-            *last = last.trim_end_matches(".rs").to_string();
-        }
-    }
-
-    if parts.is_empty() {
-        return Err(format!(
-            "Failed to determine module path for '{}'",
-            file_path
-        ));
-    }
-
-    let module_path = parts.join("::");
-    Ok(format!("{}::{}", crate_name, module_path))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_get_module() {
-        let module =
-            get_module("./examples/workspace_project/conversion/src/application.rs").unwrap();
-
-        assert_eq!(module, "conversion::application")
-    }
-
-    #[test]
-    fn test_get_module_on_a_random_file() {
-        let module = get_module("./examples/workspace_project/assets/file_1.txt");
-
-        assert_eq!(
-            module,
-            Err("Invalid file type: expected a Rust file (.rs), found 'txt'".to_string())
-        );
-    }
-
-    #[test]
     pub fn test_parsing() {
-        let dependencies =
-            get_dependencies_in_file("./examples/sample_project/src/conversion/application.rs");
+        let dependencies = get_dependencies_in_file(&RustFile::from(
+            "./examples/sample_project/src/conversion/application.rs",
+        ));
         assert_eq!(
             dependencies,
             vec![
@@ -260,24 +161,15 @@ mod tests {
 
     #[test]
     pub fn test_workspace_parsing() {
-        let dependencies =
-            get_dependencies_in_file("./examples/workspace_project/conversion/src/application.rs");
+        let dependencies = get_dependencies_in_file(&RustFile::from(
+            "./examples/workspace_project/conversion/src/application.rs",
+        ));
         assert_eq!(
             dependencies,
             vec![
                 "conversion::domain::domain_function_1",
                 "conversion::domain::domain_function_2",
             ]
-        );
-    }
-
-    #[test]
-    fn test_get_module_on_a_directory() {
-        assert_eq!(
-            get_module("./examples/workspace_project/"),
-            Err(String::from(
-                "The specified path './examples/workspace_project/' is a directory, not a file"
-            ))
         );
     }
 
@@ -374,7 +266,9 @@ mod tests {
     #[test]
     fn test_super_dependencies() {
         assert_eq!(
-            get_dependencies_in_file("./examples/sample_project/src/conversion/infrastructure.rs"),
+            get_dependencies_in_file(&RustFile::from(
+                "./examples/sample_project/src/conversion/infrastructure.rs"
+            )),
             vec![String::from(
                 "sample_project::conversion::application::application_function"
             )]
@@ -499,12 +393,5 @@ mod tests {
         let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
 
         assert_eq!(dependencies, expected_dependencies);
-    }
-
-    #[test]
-    fn test_get_module_with_a_file_in_folder_without_src() {
-        let module = get_module("tests/test_architecture.rs");
-
-        assert_eq!("rust_arkitect::tests::test_architecture", module.unwrap());
     }
 }
