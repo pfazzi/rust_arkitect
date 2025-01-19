@@ -11,24 +11,34 @@ pub struct RustFile {
 }
 
 impl RustFile {
-    pub fn from(path: &str) -> Self {
+    pub fn from_file_system(path: &str) -> Self {
         let content = match std::fs::read_to_string(path) {
             Ok(content) => content,
             Err(e) => panic!("Failed to read file file://{}: {}", path, e),
         };
 
-        let ast = match syn::parse_file(&content) {
+        let binding = parse_module_logical_path(path).expect("Failed to compute module path");
+        let logical_path = binding.as_str();
+
+        Self::from_content(path, logical_path, &content)
+    }
+
+    pub fn from_content(path: &str, logical_path: &str, content: &str) -> Self {
+        let ast = match syn::parse_str(&content) {
             Ok(ast) => ast,
             Err(e) => panic!("Failed to parse file file://{}: {}", path, e),
         };
 
-        let logical_path = parse_module_logical_path(path).expect("Failed to compute module path");
+        Self::from_ast(path, logical_path, ast)
+    }
+
+    pub fn from_ast(path: &str, logical_path: &str, ast: File) -> Self {
         let module_name = logical_path.split("::").last().unwrap_or("").to_string();
         let crate_name = logical_path.split("::").next().unwrap_or("").to_string();
 
         RustFile {
             path: path.to_string(),
-            logical_path,
+            logical_path: logical_path.to_string(),
             module_name,
             crate_name,
             ast,
@@ -125,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_rust_file_from_path() {
-        let file = RustFile::from(file!());
+        let file = RustFile::from_file_system(file!());
 
         assert_eq!(file.path, "src/rust_file.rs".to_string());
         assert_eq!(file.logical_path, "rust_arkitect::rust_file".to_string());

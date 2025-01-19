@@ -1,7 +1,7 @@
 use crate::rust_file::RustFile;
 use std::collections::HashSet;
 use std::ops::Deref;
-use syn::{File, Item, ItemUse, UseTree};
+use syn::{Item, ItemUse, UseTree};
 
 fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: &str) {
     match item {
@@ -20,25 +20,16 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module
 }
 
 pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
-    get_dependencies_in_ast(&file.ast, &file.logical_path)
-}
-
-fn get_dependencies_in_ast(ast: &File, current_module_logical_path: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
-    for item in ast.items.iter() {
+    for item in file.ast.items.iter() {
         match item {
             Item::Use(ItemUse { tree, .. }) => {
-                collect_dependencies_from_tree(
-                    tree,
-                    &mut dependencies,
-                    current_module_logical_path,
-                    "",
-                );
+                collect_dependencies_from_tree(tree, &mut dependencies, &file.logical_path, "");
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
-                    let module = format!("{}::{}", current_module_logical_path, mod_item.ident);
+                    let module = format!("{}::{}", &file.logical_path, mod_item.ident);
                     for sub_item in items.iter() {
                         parse_module_item(sub_item, &mut dependencies, &module);
                     }
@@ -120,18 +111,9 @@ fn collect_dependencies_from_tree(
 mod tests {
     use super::*;
 
-    fn get_dependencies_in_str(s: &str, current_module_logical_path: &str) -> Vec<String> {
-        let ast: File = match syn::parse_str(s) {
-            Ok(ast) => ast,
-            Err(e) => panic!("Failed to parse string '{}': {}", s, e),
-        };
-
-        get_dependencies_in_ast(&ast, current_module_logical_path)
-    }
-
     #[test]
     pub fn test_parsing() {
-        let dependencies = get_dependencies_in_file(&RustFile::from(
+        let dependencies = get_dependencies_in_file(&RustFile::from_file_system(
             "./examples/sample_project/src/conversion/application.rs",
         ));
         assert_eq!(
@@ -146,7 +128,7 @@ mod tests {
 
     #[test]
     pub fn test_workspace_parsing() {
-        let dependencies = get_dependencies_in_file(&RustFile::from(
+        let dependencies = get_dependencies_in_file(&RustFile::from_file_system(
             "./examples/workspace_project/conversion/src/application.rs",
         ));
         assert_eq!(
@@ -186,7 +168,11 @@ mod tests {
             };
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::domain");
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
 
         let expected_dependencies = vec![
             "crate::application::container::self",
@@ -233,7 +219,8 @@ mod tests {
         use std::fmt::{Display, Formatter};
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "my_app");
+        let dependencies =
+            get_dependencies_in_file(&RustFile::from_content("/src/my_app.rs", "my_app", source));
 
         let expected_dependencies = vec![
             "my_app::dependency_parsing::get_dependencies_in_file",
@@ -251,7 +238,7 @@ mod tests {
     #[test]
     fn test_super_dependencies() {
         assert_eq!(
-            get_dependencies_in_file(&RustFile::from(
+            get_dependencies_in_file(&RustFile::from_file_system(
                 "./examples/sample_project/src/conversion/infrastructure.rs"
             )),
             vec![String::from(
@@ -266,7 +253,11 @@ mod tests {
         use crate::module::*;
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::module");
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::module",
+            source,
+        ));
 
         let expected_dependencies = vec!["crate::module::*"];
 
@@ -279,7 +270,11 @@ mod tests {
         use crate::module::original_name as alias_name;
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::module");
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::module",
+            source,
+        ));
 
         let expected_dependencies = vec!["crate::module::original_name"];
 
@@ -295,7 +290,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate");
+        let dependencies =
+            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::another::dependency"];
 
@@ -312,7 +308,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate");
+        let dependencies =
+            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
 
         let expected_dependencies = vec!["crate::nested::dependency".to_string()];
 
@@ -325,7 +322,8 @@ mod tests {
         mod submodule {}
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate");
+        let dependencies =
+            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
 
         let expected_dependencies: Vec<String> = vec![];
 
@@ -344,7 +342,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate");
+        let dependencies =
+            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::nested::dependency"];
 
@@ -359,7 +358,11 @@ mod tests {
             }
             "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::application::use_case");
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::application::use_case",
+            source,
+        ));
 
         let expected_dependencies = vec!["crate::application::use_case::*"];
 
@@ -373,7 +376,11 @@ mod tests {
             use super::query;
             "#;
 
-        let dependencies = get_dependencies_in_str(source, "crate::application::use_case");
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::application::use_case",
+            source,
+        ));
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
 

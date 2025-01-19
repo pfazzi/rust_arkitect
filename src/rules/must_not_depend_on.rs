@@ -94,7 +94,7 @@ mod tests {
             forbidden_dependencies: vec!["sample_project::contracts".to_string()],
         };
 
-        let result = rule.apply(&RustFile::from(
+        let result = rule.apply(&RustFile::from_file_system(
             "./../rust_arkitect/examples/sample_project/src/conversion/application.rs",
         ));
 
@@ -108,7 +108,7 @@ mod tests {
             forbidden_dependencies: vec!["sample_project::policy_management".to_string()],
         };
 
-        let result = rule.apply(&RustFile::from(
+        let result = rule.apply(&RustFile::from_file_system(
             "./../rust_arkitect/examples/sample_project/src/conversion/application.rs",
         ));
 

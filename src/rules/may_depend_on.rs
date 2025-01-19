@@ -94,7 +94,7 @@ mod tests {
             allowed_dependencies: vec!["conversion::domain::domain_function_1".to_string()],
         };
 
-        let result = rule.apply(&RustFile::from(
+        let result = rule.apply(&RustFile::from_file_system(
             "./../rust_arkitect/examples/sample_project/src/conversion/application.rs",
         ));
 

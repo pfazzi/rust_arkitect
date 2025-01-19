@@ -91,7 +91,7 @@ impl<'a> Engine<'a> {
     fn apply_rules(&mut self, file: PathBuf) {
         let file_name = file.to_str().unwrap();
         let bold = Style::new().bold().fg(RGB(0, 255, 0));
-        let file = RustFile::from(file_name);
+        let file = RustFile::from_file_system(file_name);
         info!(
             "🛠Applying rules to {} ({})",
             &file.logical_path,
