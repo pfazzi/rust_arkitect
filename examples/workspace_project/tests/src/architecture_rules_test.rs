@@ -9,16 +9,16 @@ fn test_vertical_slices_architecture_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_crate("contracts")
-            .must_not_depend_on_anything()
+            .it_must_not_depend_on_anything()
 
         .rules_for_crate("conversion")
-            .may_depend_on(&["contracts"])
+            .it_may_depend_on(&["contracts"])
 
         .rules_for_crate("policy_management")
-            .may_depend_on(&["contracts"])
+            .it_may_depend_on(&["contracts"])
 
         .rules_for_crate("application")
-            .may_depend_on(&["conversion", "policy_management"])
+            .it_may_depend_on(&["conversion", "policy_management"])
 
         .build();
 
@@ -38,13 +38,13 @@ fn test_mvc_architecture_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("crate::policy_management::model")
-            .must_not_depend_on_anything()
+            .it_must_not_depend_on_anything()
 
         .rules_for_module("crate::policy_management::repository")
-            .may_depend_on(&["crate::policy_management::model"])
+            .it_may_depend_on(&["crate::policy_management::model"])
 
         .rules_for_module("crate::policy_management::controller")
-            .may_depend_on(&["crate::policy_management::repository", "crate::policy_management::model"])
+            .it_may_depend_on(&["crate::policy_management::repository", "crate::policy_management::model"])
 
         .build();
 
@@ -62,13 +62,13 @@ fn test_three_tier_architecture() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("crate::conversion::application")
-            .may_depend_on(&["crate::conversion::domain"])
+            .it_may_depend_on(&["crate::conversion::domain"])
 
         .rules_for_module("crate::conversion::domain")
-            .must_not_depend_on_anything()
+            .it_must_not_depend_on_anything()
 
         .rules_for_module("crate::conversion::infrastructure")
-            .may_depend_on(&["crate::conversion::domain", "crate::conversion::application"])
+            .it_may_depend_on(&["crate::conversion::domain", "crate::conversion::application"])
         .build();
 
     let result = Arkitect::ensure_that(project).complies_with(rules);

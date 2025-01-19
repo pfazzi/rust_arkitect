@@ -35,7 +35,7 @@ impl Display for MustNotDependOnAnythingRule {
 
 impl Rule for MustNotDependOnAnythingRule {
     fn apply(&self, file: &RustFile) -> Result<(), String> {
-        let dependencies = get_dependencies_in_file(&file.path);
+        let dependencies = get_dependencies_in_file(file);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()

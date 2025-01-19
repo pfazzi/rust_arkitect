@@ -128,7 +128,7 @@ fn parse_module_logical_path(file_path: &str) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::rules::rule::RustFile;
+    use crate::rules::rule::{parse_module_logical_path, RustFile};
 
     #[test]
     fn test_rust_file_from_path() {
@@ -138,5 +138,41 @@ mod tests {
         assert_eq!(file.logical_path, "rust_arkitect::rules::rule".to_string());
         assert_eq!(file.crate_name, "rust_arkitect".to_string());
         assert_eq!(file.module_name, "rule".to_string());
+    }
+
+    #[test]
+    fn test_get_module() {
+        let module =
+            parse_module_logical_path("./examples/workspace_project/conversion/src/application.rs")
+                .unwrap();
+
+        assert_eq!(module, "conversion::application")
+    }
+
+    #[test]
+    fn test_get_module_on_a_random_file() {
+        let module = parse_module_logical_path("./examples/workspace_project/assets/file_1.txt");
+
+        assert_eq!(
+            module,
+            Err("Invalid file type: expected a Rust file (.rs), found 'txt'".to_string())
+        );
+    }
+
+    #[test]
+    fn test_get_module_with_a_file_in_folder_without_src() {
+        let module = parse_module_logical_path("tests/test_architecture.rs");
+
+        assert_eq!("rust_arkitect::tests::test_architecture", module.unwrap());
+    }
+
+    #[test]
+    fn test_get_module_on_a_directory() {
+        assert_eq!(
+            parse_module_logical_path("./examples/workspace_project/"),
+            Err(String::from(
+                "The specified path './examples/workspace_project/' is a directory, not a file"
+            ))
+        );
     }
 }
