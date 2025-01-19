@@ -1,22 +1,7 @@
 use crate::rust_file::RustFile;
 use std::collections::HashSet;
-use std::fs;
 use std::ops::Deref;
 use syn::{File, Item, ItemUse, UseTree};
-
-pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
-    let content = match fs::read_to_string(&file.path) {
-        Ok(content) => content,
-        Err(e) => panic!("Failed to read file file://{}: {}", file.path, e),
-    };
-
-    let ast = match syn::parse_file(&content) {
-        Ok(ast) => ast,
-        Err(e) => panic!("Failed to parse file file://{}: {}", file.path, e),
-    };
-
-    get_dependencies_in_ast(&ast, &file.logical_path)
-}
 
 fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: &str) {
     match item {
@@ -34,17 +19,11 @@ fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module
     }
 }
 
-#[allow(dead_code)]
-fn get_dependencies_in_str(s: &str, module: &str) -> Vec<String> {
-    let ast: File = match syn::parse_str(s) {
-        Ok(ast) => ast,
-        Err(e) => panic!("Failed to parse string '{}': {}", s, e),
-    };
-
-    get_dependencies_in_ast(&ast, module)
+pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
+    get_dependencies_in_ast(&file.ast, &file.logical_path)
 }
 
-pub fn get_dependencies_in_ast(ast: &File, current_module_logical_path: &str) -> Vec<String> {
+fn get_dependencies_in_ast(ast: &File, current_module_logical_path: &str) -> Vec<String> {
     let mut dependencies = Vec::new();
 
     for item in ast.items.iter() {
@@ -69,12 +48,9 @@ pub fn get_dependencies_in_ast(ast: &File, current_module_logical_path: &str) ->
         }
     }
 
-    unique_values(dependencies)
-}
-
-fn unique_values<T: std::hash::Hash + Eq + Clone>(vec: Vec<T>) -> Vec<T> {
     let mut unique_set = HashSet::new();
-    vec.into_iter()
+    dependencies
+        .into_iter()
         .filter(|item| unique_set.insert(item.clone()))
         .collect()
 }
@@ -143,6 +119,15 @@ fn collect_dependencies_from_tree(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn get_dependencies_in_str(s: &str, current_module_logical_path: &str) -> Vec<String> {
+        let ast: File = match syn::parse_str(s) {
+            Ok(ast) => ast,
+            Err(e) => panic!("Failed to parse string '{}': {}", s, e),
+        };
+
+        get_dependencies_in_ast(&ast, current_module_logical_path)
+    }
 
     #[test]
     pub fn test_parsing() {

@@ -1,4 +1,4 @@
-use crate::dependency_parsing::get_dependencies_in_ast;
+use crate::dependency_parsing::get_dependencies_in_file;
 use crate::rule::Rule;
 use crate::rules::utils::IsChild;
 use crate::rust_file::RustFile;
@@ -37,7 +37,7 @@ impl Display for MayDependOnRule {
 
 impl Rule for MayDependOnRule {
     fn apply(&self, file: &RustFile) -> Result<(), String> {
-        let dependencies = get_dependencies_in_ast(&file.ast, &file.logical_path);
+        let dependencies = get_dependencies_in_file(&file);
 
         let forbidden_dependencies: Vec<String> = dependencies
             .iter()
