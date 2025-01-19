@@ -92,7 +92,7 @@ impl ArchitecturalRules<SubjectDefined> {
         }
     }
 
-    pub fn it_must(
+    pub fn it(
         self,
         rule: Box<dyn SubjectInjectableRuleBuilder>,
     ) -> ArchitecturalRules<RulesDefined> {
@@ -156,7 +156,7 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn and_it_must(
+    pub fn and_it(
         self,
         rule: Box<dyn SubjectInjectableRuleBuilder>,
     ) -> ArchitecturalRules<RulesDefined> {
@@ -236,7 +236,7 @@ mod tests {
         let rules = ArchitecturalRules::define()
             .rules_for_crate("application")
                 .it_may_depend_on(&["my_app", "domain"])
-                .and_it_must(NotContainAttribute::new("#[a]"))
+                .and_it(MustNotContainAttribute::new("#[a]"))
             .build();
 
         assert_eq!(rules.len(), 2);
@@ -263,13 +263,13 @@ mod tests {
         attribute: String,
     }
 
-    struct NotContainAttribute {
+    struct MustNotContainAttribute {
         attribute: String,
     }
 
-    impl NotContainAttribute {
+    impl MustNotContainAttribute {
         fn new(attribute: &str) -> Box<dyn SubjectInjectableRuleBuilder> {
-            Box::new(NotContainAttribute {
+            Box::new(MustNotContainAttribute {
                 attribute: attribute.to_string(),
             })
         }
@@ -291,7 +291,7 @@ mod tests {
         }
     }
 
-    impl SubjectInjectableRuleBuilder for NotContainAttribute {
+    impl SubjectInjectableRuleBuilder for MustNotContainAttribute {
         fn for_subject(&self, subject: &str) -> Box<dyn Rule> {
             Box::new(MustNotContainAttributeRule {
                 subject: subject.to_string(),
@@ -305,20 +305,20 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_crate("a_crate")
-                .it_must(NotContainAttribute::new("#[test]"))
-                .and_it_must(NotContainAttribute::new("#[rustfmt::skip]"))
+                .it(MustNotContainAttribute::new("#[test]"))
+                .and_it(MustNotContainAttribute::new("#[rustfmt::skip]"))
                 .and_it_may_depend_on(&["some::module"])
             .rules_for_module("my_crate::utils")
                 .it_must_not_depend_on(&["some::module"])
-                .and_it_must(NotContainAttribute::new("#[test]"))
+                .and_it(MustNotContainAttribute::new("#[test]"))
             .rules_for_module("services::auth")
                 .it_may_depend_on(&["some::module"])
-                .and_it_must(NotContainAttribute::new("#[test]"))
+                .and_it(MustNotContainAttribute::new("#[test]"))
             .rules_for_module("domain::entities")
                 .it_must_not_depend_on_anything()
-                .and_it_must(NotContainAttribute::new("#[test]"))
+                .and_it(MustNotContainAttribute::new("#[test]"))
             .rules_for_module("models::product")
-                .it_must(NotContainAttribute::new("#[test]"))
+                .it(MustNotContainAttribute::new("#[test]"))
                 .and_it_must_not_depend_on_anything()
             .rules_for_module("a_crate::another_module")
                 .it_must_not_depend_on_anything()
