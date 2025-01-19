@@ -1,13 +1,6 @@
-use std::fmt::Display;
 use std::path::Path;
 use syn::File;
 use toml::Value;
-
-pub trait Rule: Display {
-    fn apply(&self, file: &RustFile) -> Result<(), String>;
-
-    fn is_applicable(&self, file: &RustFile) -> bool;
-}
 
 pub struct RustFile {
     pub path: String,
@@ -128,16 +121,16 @@ fn parse_module_logical_path(file_path: &str) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::rules::rule::{parse_module_logical_path, RustFile};
+    use crate::rust_file::{parse_module_logical_path, RustFile};
 
     #[test]
     fn test_rust_file_from_path() {
         let file = RustFile::from(file!());
 
-        assert_eq!(file.path, "src/rules/rule.rs".to_string());
-        assert_eq!(file.logical_path, "rust_arkitect::rules::rule".to_string());
+        assert_eq!(file.path, "src/rust_file.rs".to_string());
+        assert_eq!(file.logical_path, "rust_arkitect::rust_file".to_string());
         assert_eq!(file.crate_name, "rust_arkitect".to_string());
-        assert_eq!(file.module_name, "rule".to_string());
+        assert_eq!(file.module_name, "rust_file".to_string());
     }
 
     #[test]

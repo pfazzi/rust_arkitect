@@ -1,4 +1,4 @@
-use crate::rules::rule::RustFile;
+use crate::rust_file::RustFile;
 use std::collections::HashSet;
 use std::fs;
 use std::ops::Deref;

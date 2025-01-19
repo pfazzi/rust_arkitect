@@ -8,21 +8,68 @@ use rust_arkitect::dsl::project::Project;
 fn test_architectural_rules() {
     Arkitect::init_logger();
 
-    let project = Project::new();
+    let project = Project::from_current_crate();
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
-        .rules_for_module("crate::dsl")
-            .it_may_depend_on(&["crate::engine", "crate::rules", "std::collections", "std::marker::PhantomData", "std::path"])
+        .rules_for_module("rust_arkitect::dsl")
+            .it_may_depend_on(&[
+                "rust_arkitect::engine",
+                "rust_arkitect::rules",
+                "rust_arkitect::rule",
+                "rust_arkitect::rust_file",
+                "std::collections",
+                "std::marker::PhantomData",
+                "std::path",
+                "std::fmt",
+                "std::env",
+                "std::fs"
+            ])
 
-        .rules_for_module("crate::engine")
-            .it_may_depend_on(&["crate::rules", "ansi_term", "log", "std::fs"])
+        .rules_for_module("rust_arkitect::engine")
+            .it_may_depend_on(&[
+                "rust_arkitect::rule",
+                "rust_arkitect::rust_file",
+                "ansi_term",
+                "log",
+                "std::env",
+                "std::fs",
+                "std::path",
+                "toml"
+            ])
 
-        .rules_for_module("crate::rules")
-            .it_may_depend_on(&["crate::dependency_parsing", "ansi_term", "log", "std::fmt"])
+        .rules_for_module("rust_arkitect::rules")
+            .it_may_depend_on(&[
+                "rust_arkitect::rust_file",
+                "rust_arkitect::rule",
+                "rust_arkitect::dependency_parsing",
+                "ansi_term",
+                "log",
+                "std::fmt"
+            ])
 
-        .rules_for_crate("crate::dependency_parsing")
-            .it_may_depend_on(&["syn", "quote", "std::path", "std::ops", "std::fs"])
+        .rules_for_crate("rust_arkitect::rule")
+            .it_may_depend_on(&[
+                "rust_arkitect::rust_file",
+                "std::fmt",
+            ])
+
+        .rules_for_crate("rust_arkitect::dependency_parsing")
+            .it_may_depend_on(&[
+                "rust_arkitect::rust_file",
+                "syn",
+                "std::collections",
+                "std::path",
+                "std::ops",
+                "std::fs"
+            ])
+
+        .rules_for_crate("rust_arkitect::rust_file")
+            .it_may_depend_on(&[
+                "std::path",
+                "syn",
+                "toml", // Why?
+            ])
 
         .build();
 

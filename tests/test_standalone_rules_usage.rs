@@ -2,8 +2,9 @@
 
 use rust_arkitect::dsl::arkitect::Arkitect;
 use rust_arkitect::dsl::project::Project;
+use rust_arkitect::rule::Rule;
 use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
-use rust_arkitect::rules::rule::{Rule, RustFile};
+use rust_arkitect::rust_file::RustFile;
 use std::fmt::{Display, Formatter};
 
 struct TestRule;

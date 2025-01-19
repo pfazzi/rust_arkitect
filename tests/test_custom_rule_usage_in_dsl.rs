@@ -1,6 +1,7 @@
 #![cfg(test)]
 
-use rust_arkitect::rules::rule::{Rule, RustFile};
+use rust_arkitect::rule::Rule;
+use rust_arkitect::rust_file::RustFile;
 use std::fmt::{Display, Formatter};
 
 struct TestRule;

@@ -1,6 +1,6 @@
 use crate::dsl::project::Project;
 use crate::engine::Engine;
-use crate::rules::rule::Rule;
+use crate::rule::Rule;
 
 pub struct Arkitect {
     project: Project,

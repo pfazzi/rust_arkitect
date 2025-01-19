@@ -1,4 +1,5 @@
-use crate::rules::rule::{Rule, RustFile};
+use crate::rule::Rule;
+use crate::rust_file::RustFile;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};

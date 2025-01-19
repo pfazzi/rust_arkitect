@@ -1,7 +1,7 @@
+use crate::rule::Rule;
 use crate::rules::may_depend_on::MayDependOnRule;
 use crate::rules::must_not_depend_on::MustNotDependOnRule;
 use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
-use crate::rules::rule::Rule;
 use std::marker::PhantomData;
 
 pub struct Begin;
@@ -194,7 +194,7 @@ impl ArchitecturalRules<RulesDefined> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rules::rule::RustFile;
+    use crate::rust_file::RustFile;
     use std::fmt::{Display, Formatter};
 
     #[test]

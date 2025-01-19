@@ -1,6 +1,7 @@
 use crate::dependency_parsing::get_dependencies_in_ast;
-use crate::rules::rule::{Rule, RustFile};
+use crate::rule::Rule;
 use crate::rules::utils::IsChild;
+use crate::rust_file::RustFile;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::debug;
@@ -70,8 +71,8 @@ impl Rule for MayDependOnRule {
     }
 
     fn is_applicable(&self, file: &RustFile) -> bool {
-        let orange = Style::new().bold().fg(ansi_term::Color::RGB(255, 165, 0));
-        let green = Style::new().bold().fg(ansi_term::Color::RGB(0, 255, 0));
+        let orange = Style::new().bold().fg(RGB(255, 165, 0));
+        let green = Style::new().bold().fg(RGB(0, 255, 0));
         debug!(
             "File {} mapped to module {}",
             green.paint(&file.path),
@@ -84,6 +85,7 @@ impl Rule for MayDependOnRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rust_file::RustFile;
 
     #[test]
     fn test_dependency_rule() {

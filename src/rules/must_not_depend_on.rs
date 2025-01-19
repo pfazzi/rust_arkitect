@@ -1,6 +1,7 @@
 use crate::dependency_parsing::get_dependencies_in_file;
-use crate::rules::rule::{Rule, RustFile};
+use crate::rule::Rule;
 use crate::rules::utils::IsChild;
+use crate::rust_file::RustFile;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::debug;
@@ -84,6 +85,7 @@ impl Rule for MustNotDependOnRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rust_file::RustFile;
 
     #[test]
     fn test_dependency_rule_err() {
