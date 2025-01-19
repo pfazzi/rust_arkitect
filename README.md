@@ -30,13 +30,13 @@ fn test_architectural_rules() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_module("sample_project::application")
-            .may_depend_on(&["sample_project::domain"])
+            .it_may_depend_on(&["sample_project::domain"])
 
         .rules_for_module("sample_project::domain")
-            .must_not_depend_on_anything()
+            .it_must_not_depend_on_anything()
 
         .rules_for_module("sample_project::infrastructure")
-            .may_depend_on(&["sample_project::domain", "sample_project::application"])
+            .it_may_depend_on(&["sample_project::domain", "sample_project::application"])
 
         .build();
 
@@ -78,13 +78,13 @@ fn test_architecture_baseline() {
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
         .rules_for_crate("application")
-            .may_depend_on(&["domain"])
+            .it_may_depend_on(&["domain"])
 
         .rules_for_module("domain")
-            .must_not_depend_on_anything()
+            .it_must_not_depend_on_anything()
 
         .rules_for_module("infrastructure")
-            .may_depend_on(&["domain", "application"])
+            .it_may_depend_on(&["domain", "application"])
 
         .build();
 
@@ -147,7 +147,7 @@ impl TestRule {
 // Implement Display for the rule for better readability in logs
 impl Display for TestRule {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TestRule applied")
+        write!(f, "TestRule")
     }
 }
 
