@@ -1,43 +1,42 @@
 use crate::rust_file::RustFile;
+use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ops::Deref;
-use syn::{Item, ItemUse, UseTree};
-
-fn parse_module_item(item: &Item, dependencies: &mut Vec<String>, current_module: &str) {
-    match item {
-        Item::Use(ItemUse { tree, .. }) => {
-            collect_dependencies_from_tree(tree, dependencies, current_module, "");
-        }
-        Item::Mod(mod_item) => {
-            if let Some((_, items)) = &mod_item.content {
-                for sub_item in items.iter() {
-                    parse_module_item(sub_item, dependencies, current_module);
-                }
-            }
-        }
-        _ => {}
-    }
-}
+use syn::{visit::Visit, ExprPath, Item, ItemUse, Path, UseTree};
 
 pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
     let mut dependencies = Vec::new();
+    let mut aliases = HashMap::new();
 
     for item in file.ast.items.iter() {
         match item {
             Item::Use(ItemUse { tree, .. }) => {
-                collect_dependencies_from_tree(tree, &mut dependencies, &file.logical_path, "");
+                collect_dependencies_from_tree(
+                    tree,
+                    &mut dependencies,
+                    &mut aliases,
+                    &file.logical_path,
+                    "",
+                );
             }
             Item::Mod(mod_item) => {
                 if let Some((_, items)) = &mod_item.content {
                     let module = format!("{}::{}", &file.logical_path, mod_item.ident);
                     for sub_item in items.iter() {
-                        parse_module_item(sub_item, &mut dependencies, &module);
+                        parse_module_item(sub_item, &mut dependencies, &mut aliases, &module);
                     }
                 }
             }
             _ => {}
         }
     }
+
+    let mut collector = PathCollector {
+        dependencies: Vec::new(),
+        aliases: &aliases,
+        current_module: &file.logical_path,
+    };
+    syn::visit::visit_file(&mut collector, &file.ast);
+    dependencies.extend(collector.dependencies);
 
     let mut unique_set = HashSet::new();
     dependencies
@@ -46,9 +45,31 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
         .collect()
 }
 
+fn parse_module_item(
+    item: &Item,
+    dependencies: &mut Vec<String>,
+    aliases: &mut HashMap<String, String>,
+    current_module: &str,
+) {
+    match item {
+        Item::Use(ItemUse { tree, .. }) => {
+            collect_dependencies_from_tree(tree, dependencies, aliases, current_module, "");
+        }
+        Item::Mod(mod_item) => {
+            if let Some((_, items)) = &mod_item.content {
+                for sub_item in items.iter() {
+                    parse_module_item(sub_item, dependencies, aliases, current_module);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 fn collect_dependencies_from_tree(
     tree: &UseTree,
     dependencies: &mut Vec<String>,
+    aliases: &mut HashMap<String, String>,
     current_module: &str,
     prefix: &str,
 ) {
@@ -59,17 +80,18 @@ fn collect_dependencies_from_tree(
             let ident = path.ident.to_string();
             if ident == "super" {
                 let super_module = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
-
                 collect_dependencies_from_tree(
-                    path.tree.deref(),
+                    &path.tree,
                     dependencies,
+                    aliases,
                     current_module,
                     super_module,
                 );
             } else if ident == "crate" {
                 collect_dependencies_from_tree(
-                    path.tree.deref(),
+                    &path.tree,
                     dependencies,
+                    aliases,
                     current_module,
                     crate_name,
                 );
@@ -80,8 +102,9 @@ fn collect_dependencies_from_tree(
                     ident
                 };
                 collect_dependencies_from_tree(
-                    path.tree.deref(),
+                    &path.tree,
                     dependencies,
+                    aliases,
                     current_module,
                     ident.as_str(),
                 );
@@ -89,12 +112,13 @@ fn collect_dependencies_from_tree(
         }
         UseTree::Group(group) => {
             for item in group.items.iter() {
-                collect_dependencies_from_tree(item, dependencies, current_module, prefix);
+                collect_dependencies_from_tree(item, dependencies, aliases, current_module, prefix);
             }
         }
         UseTree::Name(name) => {
             let dep = format!("{}::{}", prefix, name.ident);
-            dependencies.push(dep);
+            dependencies.push(dep.clone());
+            aliases.insert(name.ident.to_string(), dep);
         }
         UseTree::Glob(_) => {
             let dep = format!("{}::*", prefix);
@@ -102,8 +126,77 @@ fn collect_dependencies_from_tree(
         }
         UseTree::Rename(rename) => {
             let ident = format!("{}::{}", prefix, rename.ident);
-            dependencies.push(ident);
+            dependencies.push(ident.clone());
+            aliases.insert(rename.rename.to_string(), ident);
         }
+    }
+}
+
+struct PathCollector<'a> {
+    pub dependencies: Vec<String>,
+    pub aliases: &'a HashMap<String, String>,
+    pub current_module: &'a str,
+}
+
+impl<'ast, 'a> Visit<'ast> for PathCollector<'a> {
+    fn visit_expr_path(&mut self, node: &'ast ExprPath) {
+        let path_str = path_to_string(&node.path);
+
+        if let Some(first_segment) = node.path.segments.first() {
+            let first_ident = first_segment.ident.to_string();
+
+            if first_ident == "crate" {
+                self.dependencies.push(path_str);
+            } else if first_ident == "super" {
+                let resolved = resolve_super_path(&node.path, self.current_module);
+                self.dependencies.push(resolved);
+            } else if let Some(full_path) = self.aliases.get(&first_ident) {
+                let resolved = rejoin_alias_with_rest(full_path, &node.path);
+                self.dependencies.push(resolved);
+            }
+        }
+        syn::visit::visit_expr_path(self, node);
+    }
+}
+
+fn path_to_string(path: &Path) -> String {
+    path.segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("::")
+}
+
+fn resolve_super_path(path: &Path, current_module: &str) -> String {
+    let parent_module = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
+    let rest = path
+        .segments
+        .iter()
+        .skip(1)
+        .map(|s| s.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("::");
+
+    if rest.is_empty() {
+        parent_module.to_string()
+    } else {
+        format!("{}::{}", parent_module, rest)
+    }
+}
+
+fn rejoin_alias_with_rest(alias_full: &str, path: &Path) -> String {
+    let mut segs = path.segments.iter();
+    segs.next();
+
+    let rest = segs
+        .map(|s| s.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("::");
+
+    if rest.is_empty() {
+        alias_full.to_owned()
+    } else {
+        format!("{}::{}", alias_full, rest)
     }
 }
 
@@ -383,6 +476,36 @@ mod tests {
         ));
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_dependencies_in_file_body() {
+        let source = r#"
+        use crate::some::dependency;
+        use crate::other_dependency;
+
+        fn example() {
+            crate::other::module::function();
+            crate::some::dependency::function();
+            other_dependency::function();
+        }
+    "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies = vec![
+            "crate::some::dependency",
+            "crate::other_dependency",
+            "crate::other::module::function",
+            "crate::some::dependency::function",
+            "crate::other_dependency::function",
+        ];
 
         assert_eq!(dependencies, expected_dependencies);
     }
