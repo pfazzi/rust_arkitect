@@ -1,7 +1,7 @@
 use crate::rust_file::RustFile;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use syn::{visit::Visit, ExprPath, Item, ItemUse, Path, UseTree};
+use syn::{visit::Visit, ExprPath, Item, ItemUse, Path, TypePath, UseTree};
 
 pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
     let mut dependencies = Vec::new();
@@ -156,6 +156,30 @@ impl<'ast, 'a> Visit<'ast> for PathCollector<'a> {
             }
         }
         syn::visit::visit_expr_path(self, node);
+    }
+
+    fn visit_type_path(&mut self, node: &'ast TypePath) {
+        let path_str = path_to_string(&node.path);
+
+        if node.path.segments.len() == 1 {
+            return;
+        }
+
+        if let Some(first_segment) = node.path.segments.first() {
+            let first_ident = first_segment.ident.to_string();
+            if first_ident == "crate" {
+                self.dependencies.push(path_str);
+            } else if first_ident == "super" {
+                let resolved = resolve_super_path(&node.path, self.current_module);
+                self.dependencies.push(resolved);
+            } else if let Some(full_path) = self.aliases.get(&first_ident) {
+                let resolved = rejoin_alias_with_rest(full_path, &node.path);
+                self.dependencies.push(resolved);
+            } else {
+                self.dependencies.push(path_str);
+            }
+        }
+        syn::visit::visit_type_path(self, node);
     }
 }
 
@@ -505,6 +529,151 @@ mod tests {
             "crate::other::module::function",
             "crate::some::dependency::function",
             "crate::other_dependency::function",
+        ];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_dependencies_in_file_struct_declaration() {
+        let source = r#"
+        struct SomeStruct {
+            a_field: some_library::some::dependency::SomeType
+        }
+        "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies = vec!["some_library::some::dependency::SomeType"];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_dependencies_in_file_struct_declaration_with_crate() {
+        let source = r#"
+        struct SomeStruct {
+            a_field: crate::some::dependency::SomeType
+        }
+        "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies = vec!["crate::some::dependency::SomeType"];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_standard_types_are_ignored() {
+        let source = r#"
+        struct SomeStruct {
+            a_field: Self,
+            another_field: Vec<String>
+        }
+        "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies: Vec<String> = vec![];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_aliasing_and_standard_types() {
+        let source = r#"
+        use std::collections::HashMap as MyMap;
+
+        struct SomeStruct {
+            a_field: Vec<String>,
+            b_field: MyMap<i32, bool>,
+            c_field: some_library::dependency::CustomType,
+        }
+        "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies = vec![
+            "std::collections::HashMap",
+            "some_library::dependency::CustomType",
+        ];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_aliasing_and_standard_types_2() {
+        let source = r#"
+        use some_library::collections as collections;
+
+        struct SomeStruct {
+            b_field: collections::MyMap<i32, bool>,
+            c_field: some_library::dependency::CustomType,
+        }
+        "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies = vec![
+            "some_library::collections",
+            "some_library::collections::MyMap",
+            "some_library::dependency::CustomType",
+        ];
+
+        assert_eq!(dependencies, expected_dependencies);
+    }
+
+    #[test]
+    fn test_return_types() {
+        let source = r#"
+        use some_library::collections::RandomCollection as RandCollections;
+        use another_lib::utils as utils;
+
+        fn a_function() -> RandCollections {
+            todo!()
+        }
+
+        fn b_function() -> utils::Hello {
+            todo!()
+        }
+
+        fn b_function(a: utils::Ciao) -> utils::Hello {
+            todo!()
+        }
+        "#;
+
+        let dependencies = get_dependencies_in_file(&RustFile::from_content(
+            "/src/domain.rs",
+            "crate::domain",
+            source,
+        ));
+
+        let expected_dependencies = vec![
+            "some_library::collections::RandomCollection",
+            "another_lib::utils",
+            "another_lib::utils::Hello",
+            "another_lib::utils::Ciao",
         ];
 
         assert_eq!(dependencies, expected_dependencies);
