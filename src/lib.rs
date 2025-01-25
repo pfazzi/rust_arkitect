@@ -1,4 +1,4 @@
-pub mod dependency_parsing;
+mod dependency_parsing;
 pub mod dsl;
 mod engine;
 pub mod rule;
