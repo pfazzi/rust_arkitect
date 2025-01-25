@@ -291,7 +291,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test_parsing() {
+    fn test_parsing() {
         let dependencies = get_dependencies_in_file(&RustFile::from_file_system(
             "./examples/sample_project/src/conversion/application.rs",
         ));
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_workspace_parsing() {
+    fn test_workspace_parsing() {
         let dependencies = get_dependencies_in_file(&RustFile::from_file_system(
             "./examples/workspace_project/conversion/src/application.rs",
         ));
