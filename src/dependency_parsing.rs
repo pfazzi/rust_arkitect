@@ -5,15 +5,15 @@ use syn::{
     ExprPath, Item, ItemMod, Path, TypePath, UseTree,
 };
 
-/// Restituisce tutte le dipendenze (use, path, ecc.) in un `RustFile`.
+/// Returns all dependencies (use, path, etc.) in a `RustFile`.
 pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
-    // 1) Raccogliamo le dipendenze dichiarate con `use` (anche nei mod inline).
+    // 1) Collect dependencies declared with `use` (also in inline modules).
     let mut dependencies = Vec::new();
     let mut aliases = HashMap::new();
 
     for item in &file.ast.items {
         match item {
-            // Se troviamo un `use`, analizziamo la sua struttura (UseTree).
+            // If we find a `use`, analyze its structure (UseTree).
             Item::Use(use_item) => {
                 collect_dependencies_from_tree(
                     &use_item.tree,
@@ -23,7 +23,7 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
                     "",
                 );
             }
-            // Se troviamo un modulo inline, analizziamo i suoi item ricorsivamente.
+            // If we find an inline module, analyze its items recursively.
             Item::Mod(mod_item) => {
                 parse_inline_module(
                     mod_item,
@@ -36,7 +36,7 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
         }
     }
 
-    // 2) Raccogliamo le dipendenze presenti nei riferimenti (expr path, type path) dentro il codice.
+    // 2) Collect dependencies found in references (expr path, type path) inside the code.
     let mut collector = DependencyVisitor {
         dependencies: Vec::new(),
         aliases: &aliases,
@@ -45,7 +45,7 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
     visit::visit_file(&mut collector, &file.ast);
     dependencies.extend(collector.dependencies);
 
-    // 3) Rimuoviamo i duplicati (mantenendo l'ordine di apparizione).
+    // 3) Remove duplicates (keeping the order of appearance).
     let mut unique_set = HashSet::new();
     dependencies
         .into_iter()
@@ -53,16 +53,16 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
         .collect()
 }
 
-/// Analizza in modo ricorsivo un modulo inline, collezionando `use` e altri mod.
+/// Analyze an inline module recursively, collecting `use` and other modules.
 fn parse_inline_module(
     mod_item: &ItemMod,
     dependencies: &mut Vec<String>,
     aliases: &mut HashMap<String, String>,
     current_module: &str,
 ) {
-    // Se non è un modulo inline con `content`, ignoriamo.
+    // If it's not an inline module with `content`, skip it.
     if let Some((_, items)) = &mod_item.content {
-        // Costruiamo il percorso logico di questo modulo inline.
+        // Build the logical path of this inline module.
         let module_path = format!("{}::{}", current_module, mod_item.ident);
         for item in items {
             match item {
@@ -76,7 +76,7 @@ fn parse_inline_module(
                     );
                 }
                 Item::Mod(nested_mod) => {
-                    // Ricorsione: i mod possono essere annidati.
+                    // Recursion: modules can be nested.
                     parse_inline_module(nested_mod, dependencies, aliases, &module_path);
                 }
                 _ => {}
@@ -85,7 +85,7 @@ fn parse_inline_module(
     }
 }
 
-/// Visita un albero di `UseTree` (come `use crate::...`) e raccoglie le dipendenze.
+/// Visit a `UseTree` (like `use crate::...`) and collect dependencies.
 fn collect_dependencies_from_tree(
     tree: &UseTree,
     dependencies: &mut Vec<String>,
@@ -93,15 +93,15 @@ fn collect_dependencies_from_tree(
     current_module: &str,
     prefix: &str,
 ) {
-    // Nome della crate di base: se `current_module` è `crate::domain`,
-    // la crate sarà "crate". Altrimenti potrebbe essere `sample_project`, ecc.
+    // Base crate name: if `current_module` is `crate::domain`,
+    // the crate will be "crate". Otherwise, it could be `sample_project`, etc.
     let crate_name = current_module.split("::").next().unwrap_or("").to_string();
 
     match tree {
         UseTree::Path(use_path) => {
             let ident_str = use_path.ident.to_string();
             if ident_str == "super" {
-                // Risolvi "super" come "modulo padre"
+                // Resolve "super" as "parent module"
                 let super_module = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
                 collect_dependencies_from_tree(
                     &use_path.tree,
@@ -111,7 +111,7 @@ fn collect_dependencies_from_tree(
                     super_module,
                 );
             } else if ident_str == "crate" {
-                // Risolvi "crate" come crate_name
+                // Resolve "crate" as crate_name
                 collect_dependencies_from_tree(
                     &use_path.tree,
                     dependencies,
@@ -120,7 +120,7 @@ fn collect_dependencies_from_tree(
                     &crate_name,
                 );
             } else {
-                // Aggiungiamo il prefisso (se presente)
+                // Add the prefix (if present)
                 let new_prefix = if prefix.is_empty() {
                     ident_str
                 } else {
@@ -136,24 +136,24 @@ fn collect_dependencies_from_tree(
             }
         }
         UseTree::Group(group) => {
-            // Se abbiamo `use something::{A, B, C}`, iteriamo su A, B, C
+            // If we have `use something::{A, B, C}`, iterate over A, B, C
             for item in &group.items {
                 collect_dependencies_from_tree(item, dependencies, aliases, current_module, prefix);
             }
         }
         UseTree::Name(use_name) => {
-            // Caso `use something::Name;`
+            // Case `use something::Name;`
             let dep = format!("{}::{}", prefix, use_name.ident);
             dependencies.push(dep.clone());
             aliases.insert(use_name.ident.to_string(), dep);
         }
         UseTree::Glob(_) => {
-            // Caso `use something::*;`
+            // Case `use something::*;`
             let dep = format!("{}::*", prefix);
             dependencies.push(dep);
         }
         UseTree::Rename(rename) => {
-            // Caso `use something::Original as Alias;`
+            // Case `use something::Original as Alias;`
             let dep = format!("{}::{}", prefix, rename.ident);
             dependencies.push(dep.clone());
             aliases.insert(rename.rename.to_string(), dep);
@@ -161,18 +161,18 @@ fn collect_dependencies_from_tree(
     }
 }
 
-/// Struttura che visita l'AST con Syn per raccogliere i riferimenti usati in path (ExprPath, TypePath, ecc.).
+/// Structure that visits the AST with Syn to collect references used in paths (ExprPath, TypePath, etc.).
 struct DependencyVisitor<'a> {
-    /// Dipendenze estratte dai path durante la visita.
+    /// Dependencies extracted from paths during the visit.
     pub dependencies: Vec<String>,
-    /// Mappa di alias per risolvere i path (es: `use crate::mymod as alias;`).
+    /// Alias map to resolve paths (e.g., `use crate::mymod as alias;`).
     pub aliases: &'a HashMap<String, String>,
-    /// Modulo in cui ci troviamo (es: "crate::domain").
+    /// Current module (e.g., "crate::domain").
     pub current_module: &'a str,
 }
 
 impl<'ast, 'a> Visit<'ast> for DependencyVisitor<'a> {
-    /// Visita un ExprPath come `crate::qualcosa::fun()`.
+    /// Visit an ExprPath like `crate::something::function()`.
     fn visit_expr_path(&mut self, node: &'ast ExprPath) {
         let path_str = path_to_string(&node.path);
 
@@ -181,16 +181,16 @@ impl<'ast, 'a> Visit<'ast> for DependencyVisitor<'a> {
 
             match first_ident.as_str() {
                 "crate" => {
-                    // Se inizia con `crate`, aggiungiamo direttamente.
+                    // If it starts with `crate`, add it directly.
                     self.dependencies.push(path_str);
                 }
                 "super" => {
-                    // Risolvi "super" in base al modulo corrente.
+                    // Resolve "super" based on the current module.
                     let resolved = resolve_super_path(&node.path, self.current_module);
                     self.dependencies.push(resolved);
                 }
                 other => {
-                    // Verifichiamo se c'è un alias (e.g. "alias" -> "some_library::stuff")
+                    // Check if there's an alias (e.g., "alias" -> "some_library::stuff")
                     if let Some(full_path) = self.aliases.get(other) {
                         let resolved = rejoin_alias_with_rest(full_path, &node.path);
                         self.dependencies.push(resolved);
@@ -199,15 +199,15 @@ impl<'ast, 'a> Visit<'ast> for DependencyVisitor<'a> {
             }
         }
 
-        // Visita generica, così i figli non vengono saltati.
+        // Generic visit, so children are not skipped.
         visit::visit_expr_path(self, node);
     }
 
-    /// Visita un TypePath come `crate::qualcosa::Tipo`.
+    /// Visit a TypePath like `crate::something::Type`.
     fn visit_type_path(&mut self, node: &'ast TypePath) {
         let path_str = path_to_string(&node.path);
 
-        // Se ha un solo segmento (es: `String`, `Self`, ecc.) saltiamo: di solito non è una dipendenza esterna.
+        // If it has only one segment (e.g., `String`, `Self`, etc.), skip it: usually not an external dependency.
         if node.path.segments.len() == 1 {
             return visit::visit_type_path(self, node);
         }
@@ -228,19 +228,19 @@ impl<'ast, 'a> Visit<'ast> for DependencyVisitor<'a> {
                         let resolved = rejoin_alias_with_rest(full_path, &node.path);
                         self.dependencies.push(resolved);
                     } else {
-                        // Altrimenti aggiungiamo il path così com'è.
+                        // Otherwise, add the path as it is.
                         self.dependencies.push(path_str);
                     }
                 }
             }
         }
 
-        // Visita generica
+        // Generic visit
         visit::visit_type_path(self, node);
     }
 }
 
-/// Converte un `Path` (es: `crate::some::path`) in una stringa (`"crate::some::path"`).
+/// Converts a `Path` (e.g., `crate::some::path`) to a string (`"crate::some::path"`).
 fn path_to_string(path: &Path) -> String {
     path.segments
         .iter()
@@ -249,10 +249,10 @@ fn path_to_string(path: &Path) -> String {
         .join("::")
 }
 
-/// Risolve la sintassi `super::qualcosa` portandola al modulo padre.
+/// Resolves `super::something` syntax to the parent module.
 fn resolve_super_path(path: &Path, current_module: &str) -> String {
-    // Trova il modulo padre. Se `current_module` = "crate::my_mod::sub_mod",
-    // allora "super" dovrebbe diventare "crate::my_mod".
+    // Find the parent module. If `current_module` = "crate::my_mod::sub_mod",
+    // then "super" should become "crate::my_mod".
     let parent_module = current_module.rsplitn(2, "::").nth(1).unwrap_or("");
     let rest = path
         .segments
@@ -269,11 +269,11 @@ fn resolve_super_path(path: &Path, current_module: &str) -> String {
     }
 }
 
-/// Se abbiamo un alias (es: `use crate::mod::Original as Alias`) e troviamo un path `Alias::rest`,
-/// questo ricostruisce la stringa corretta concatenando `Alias` con il resto.
+/// If we have an alias (e.g., `use crate::mod::Original as Alias`) and find a path `Alias::rest`,
+/// this reconstructs the correct string by joining `Alias` with the rest.
 fn rejoin_alias_with_rest(alias_full: &str, path: &Path) -> String {
     let mut segs = path.segments.iter();
-    segs.next(); // saltiamo il primo segmento (alias)
+    segs.next(); // Skip the first segment (alias)
     let rest = segs
         .map(|s| s.ident.to_string())
         .collect::<Vec<_>>()
