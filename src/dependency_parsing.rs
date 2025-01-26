@@ -1,4 +1,3 @@
-use crate::rust_file::RustFile;
 use std::collections::{HashMap, HashSet};
 use syn::{
     visit::{self, Visit},
@@ -6,12 +5,12 @@ use syn::{
 };
 
 /// Returns all dependencies (use, path, etc.) in a `RustFile`.
-pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
+pub fn get_dependencies_in_file(logical_path: &str, ast: &syn::File) -> Vec<String> {
     // 1) Collect dependencies declared with `use` (also in inline modules).
     let mut dependencies = Vec::new();
     let mut aliases = HashMap::new();
 
-    for item in &file.ast.items {
+    for item in &ast.items {
         match item {
             // If we find a `use`, analyze its structure (UseTree).
             Item::Use(use_item) => {
@@ -19,18 +18,13 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
                     &use_item.tree,
                     &mut dependencies,
                     &mut aliases,
-                    &file.logical_path,
+                    &logical_path,
                     "",
                 );
             }
             // If we find an inline module, analyze its items recursively.
             Item::Mod(mod_item) => {
-                parse_inline_module(
-                    mod_item,
-                    &mut dependencies,
-                    &mut aliases,
-                    &file.logical_path,
-                );
+                parse_inline_module(mod_item, &mut dependencies, &mut aliases, &logical_path);
             }
             _ => {}
         }
@@ -40,9 +34,9 @@ pub fn get_dependencies_in_file(file: &RustFile) -> Vec<String> {
     let mut collector = DependencyVisitor {
         dependencies: Vec::new(),
         aliases: &aliases,
-        current_module: &file.logical_path,
+        current_module: &logical_path,
     };
-    visit::visit_file(&mut collector, &file.ast);
+    visit::visit_file(&mut collector, &ast);
     dependencies.extend(collector.dependencies);
 
     // 3) Remove duplicates (keeping the order of appearance).
@@ -288,13 +282,13 @@ fn rejoin_alias_with_rest(alias_full: &str, path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::rust_file::RustFile;
 
     #[test]
     fn test_parsing() {
-        let dependencies = get_dependencies_in_file(&RustFile::from_file_system(
-            "./examples/sample_project/src/conversion/application.rs",
-        ));
+        let dependencies =
+            RustFile::from_file_system("./examples/sample_project/src/conversion/application.rs")
+                .dependencies;
         assert_eq!(
             dependencies,
             vec![
@@ -307,9 +301,10 @@ mod tests {
 
     #[test]
     fn test_workspace_parsing() {
-        let dependencies = get_dependencies_in_file(&RustFile::from_file_system(
+        let dependencies = RustFile::from_file_system(
             "./examples/workspace_project/conversion/src/application.rs",
-        ));
+        )
+        .dependencies;
         assert_eq!(
             dependencies,
             vec![
@@ -347,11 +342,8 @@ mod tests {
             };
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec![
             "crate::application::container::self",
@@ -398,8 +390,7 @@ mod tests {
         use std::fmt::{Display, Formatter};
         "#;
 
-        let dependencies =
-            get_dependencies_in_file(&RustFile::from_content("/src/my_app.rs", "my_app", source));
+        let dependencies = RustFile::from_content("/src/my_app.rs", "my_app", source).dependencies;
 
         let expected_dependencies = vec![
             "my_app::dependency_parsing::get_dependencies_in_file",
@@ -417,9 +408,10 @@ mod tests {
     #[test]
     fn test_super_dependencies() {
         assert_eq!(
-            get_dependencies_in_file(&RustFile::from_file_system(
+            RustFile::from_file_system(
                 "./examples/sample_project/src/conversion/infrastructure.rs"
-            )),
+            )
+            .dependencies,
             vec![String::from(
                 "sample_project::conversion::application::application_function"
             )]
@@ -432,11 +424,8 @@ mod tests {
         use crate::module::*;
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::module",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::module", source).dependencies;
 
         let expected_dependencies = vec!["crate::module::*"];
 
@@ -449,11 +438,8 @@ mod tests {
         use crate::module::original_name as alias_name;
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::module",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::module", source).dependencies;
 
         let expected_dependencies = vec!["crate::module::original_name"];
 
@@ -469,8 +455,7 @@ mod tests {
         }
         "#;
 
-        let dependencies =
-            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
+        let dependencies = RustFile::from_content("/src/domain.rs", "crate", source).dependencies;
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::another::dependency"];
 
@@ -487,8 +472,7 @@ mod tests {
         }
         "#;
 
-        let dependencies =
-            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
+        let dependencies = RustFile::from_content("/src/domain.rs", "crate", source).dependencies;
 
         let expected_dependencies = vec!["crate::nested::dependency".to_string()];
 
@@ -501,8 +485,7 @@ mod tests {
         mod submodule {}
         "#;
 
-        let dependencies =
-            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
+        let dependencies = RustFile::from_content("/src/domain.rs", "crate", source).dependencies;
 
         let expected_dependencies: Vec<String> = vec![];
 
@@ -521,8 +504,7 @@ mod tests {
         }
         "#;
 
-        let dependencies =
-            get_dependencies_in_file(&RustFile::from_content("/src/domain.rs", "crate", source));
+        let dependencies = RustFile::from_content("/src/domain.rs", "crate", source).dependencies;
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::nested::dependency"];
 
@@ -537,11 +519,9 @@ mod tests {
             }
             "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::application::use_case",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::application::use_case", source)
+                .dependencies;
 
         let expected_dependencies = vec!["crate::application::use_case::*"];
 
@@ -555,11 +535,9 @@ mod tests {
             use super::query;
             "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::application::use_case",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::application::use_case", source)
+                .dependencies;
 
         let expected_dependencies = vec!["crate::some::dependency", "crate::application::query"];
 
@@ -579,11 +557,8 @@ mod tests {
         }
     "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec![
             "crate::some::dependency",
@@ -604,11 +579,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec!["some_library::some::dependency::SomeType"];
 
@@ -623,11 +595,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec!["crate::some::dependency::SomeType"];
 
@@ -643,11 +612,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies: Vec<String> = vec![];
 
@@ -666,11 +632,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec![
             "std::collections::HashMap",
@@ -691,11 +654,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec![
             "some_library::collections",
@@ -725,11 +685,8 @@ mod tests {
         }
         "#;
 
-        let dependencies = get_dependencies_in_file(&RustFile::from_content(
-            "/src/domain.rs",
-            "crate::domain",
-            source,
-        ));
+        let dependencies =
+            RustFile::from_content("/src/domain.rs", "crate::domain", source).dependencies;
 
         let expected_dependencies = vec![
             "some_library::collections::RandomCollection",

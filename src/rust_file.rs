@@ -1,3 +1,4 @@
+use crate::dependency_parsing::get_dependencies_in_file;
 use std::path::Path;
 use syn::File;
 use toml::Value;
@@ -7,6 +8,7 @@ pub struct RustFile {
     pub module_name: String,
     pub crate_name: String,
     pub logical_path: String,
+    pub dependencies: Vec<String>,
     pub ast: File,
 }
 
@@ -35,12 +37,14 @@ impl RustFile {
     pub fn from_ast(path: &str, logical_path: &str, ast: File) -> Self {
         let module_name = logical_path.split("::").last().unwrap_or("").to_string();
         let crate_name = logical_path.split("::").next().unwrap_or("").to_string();
+        let dependencies = get_dependencies_in_file(&logical_path, &ast);
 
         RustFile {
             path: path.to_string(),
             logical_path: logical_path.to_string(),
             module_name,
             crate_name,
+            dependencies,
             ast,
         }
     }
