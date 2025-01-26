@@ -47,24 +47,24 @@ mod tests {
 
     #[test]
     fn test_rust_project_from_directory() {
-        // Supponendo di avere una cartella di fixture di test con qualche file .rs
-        // ad esempio: tests/fixtures/simple_project/
-        let project_dir = "/Users/patrickfazzi/Projects/rust_arkitect/examples/workspace_project";
+        let project_dir = get_workspace_project_path();
 
-        let project = RustProject::from_directory(project_dir)
+        let project = RustProject::from_directory(&project_dir)
             .expect("Should scan directory and build RustProject");
 
-        // Stampiamo quanti file ha trovato
-        println!("Found {} Rust files", project.files.len());
-        for f in &project.files {
-            println!(" - {} -> logical_path = {}", f.path, f.logical_path);
-            // E pure le dipendenze
-            println!("   dependencies: {:?}", f.dependencies);
-        }
-
-        // Creiamo il grafo e verifichiamo che contenga tante entry
         let graph = project.to_dependency_graph();
+
         assert!(graph.len() > 0);
         assert_eq!(graph.len(), project.files.len());
+    }
+
+    fn get_workspace_project_path() -> String {
+        let current_dir = std::env::current_dir().expect("Failed to get current directory");
+        let project_dir = current_dir.join("examples/workspace_project");
+        let project_dir_str = project_dir
+            .to_str()
+            .expect("Failed to convert path to string");
+
+        String::from(project_dir_str)
     }
 }
