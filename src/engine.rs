@@ -30,7 +30,8 @@ impl<'a> Engine<'a> {
     }
 
     pub(crate) fn compute_violations(mut self) -> Vec<String> {
-        let project = RustProject {};
+        let project =
+            RustProject::from_directory(self.absolute_path).expect("Could not build RustProject");
 
         self.project_rules.iter().for_each(|rule| {
             debug!("🟢 Rule {} applied", rule);
@@ -43,6 +44,7 @@ impl<'a> Engine<'a> {
             }
         });
 
+        // TODO: sfruttare il fatto che project ha già parsato tutti i file
         if is_workspace(self.absolute_path).is_ok() {
             info!("Workspace found: {}", self.absolute_path);
             self.validate_workspace(self.absolute_path);

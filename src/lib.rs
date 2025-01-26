@@ -4,4 +4,4 @@ mod engine;
 pub mod rule;
 pub mod rules;
 pub mod rust_file;
-mod rust_project;
+pub mod rust_project;
