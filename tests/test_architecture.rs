@@ -42,11 +42,13 @@ fn test_architectural_rules() {
         .rules_for_module("rust_arkitect::rules")
             .it_may_depend_on(&[
                 "rust_arkitect::rust_file",
+                "rust_arkitect::rust_project",
                 "rust_arkitect::rule",
                 "rust_arkitect::dependency_parsing",
                 "ansi_term",
                 "log",
-                "std::fmt"
+                "std::fmt",
+                "std::collections",
             ])
 
         .rules_for_crate("rust_arkitect::rule")

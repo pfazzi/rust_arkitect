@@ -283,13 +283,32 @@ fn rejoin_alias_with_rest(alias_full: &str, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use crate::dependency_parsing::get_dependencies_in_file;
-    use crate::rust_file::RustFile;
 
     #[test]
     fn test_parsing() {
+        let source = r#"
+            use crate::contracts::external_services::service_call_one;
+            use crate::conversion::domain::{domain_function_1, domain_function_2};
+
+            pub fn application_function() {
+                domain_function_1();
+                domain_function_2();
+                service_call_one();
+            }
+
+            mod use_cases {
+                use crate::conversion::domain::domain_function_2;
+
+                #[allow(dead_code)]
+                fn application_use_case() {
+                    domain_function_2();
+                }
+            }
+            "#;
+
         let dependencies =
-            RustFile::from_file_system("./examples/sample_project/src/conversion/application.rs")
-                .dependencies;
+            get_dependencies_in_source("sample_project::conversion::application", source);
+
         assert_eq!(
             dependencies,
             vec![
@@ -302,10 +321,26 @@ mod tests {
 
     #[test]
     fn test_workspace_parsing() {
-        let dependencies = RustFile::from_file_system(
-            "./examples/workspace_project/conversion/src/application.rs",
-        )
-        .dependencies;
+        let source = r#"
+            use crate::domain::{domain_function_1, domain_function_2};
+
+            pub fn application_function() {
+                domain_function_1();
+                domain_function_2();
+            }
+
+            mod use_cases {
+                use crate::domain::domain_function_2;
+
+                #[allow(dead_code)]
+                fn application_use_case() {
+                    domain_function_2();
+                }
+            }
+            "#;
+
+        let dependencies = get_dependencies_in_source("conversion::application", source);
+
         assert_eq!(
             dependencies,
             vec![
@@ -407,11 +442,20 @@ mod tests {
 
     #[test]
     fn test_super_dependencies() {
+        let source = r#"
+        use super::application::application_function;
+
+        pub fn infrastructure_function() {
+            application_function();
+            println!("Infrastructure function");
+        }
+        "#;
+
+        let dependencies =
+            get_dependencies_in_source("sample_project::conversion::infrastructure", source);
+
         assert_eq!(
-            RustFile::from_file_system(
-                "./examples/sample_project/src/conversion/infrastructure.rs"
-            )
-            .dependencies,
+            dependencies,
             vec![String::from(
                 "sample_project::conversion::application::application_function"
             )]
