@@ -3,8 +3,8 @@ use crate::engine::Engine;
 use crate::rule::{ProjectRule, Rule};
 
 pub struct Rules {
-    module_rules: Vec<Box<dyn Rule>>,
-    project_rules: Vec<Box<dyn ProjectRule>>,
+    pub module_rules: Vec<Box<dyn Rule>>,
+    pub project_rules: Vec<Box<dyn ProjectRule>>,
 }
 
 impl Rules {
