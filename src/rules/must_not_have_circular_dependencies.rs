@@ -15,7 +15,10 @@ impl Display for MustNotHaveCircularDependencies {
 impl ProjectRule for MustNotHaveCircularDependencies {
     fn apply(&self, project: &RustProject) -> Result<(), String> {
         if let Some(cycle_path) = find_cycle_in_dependencies(&project.to_dependency_graph()) {
-            return Err(format!("Circular dependency cycle detected: {}", cycle_path));
+            return Err(format!(
+                "Circular dependency cycle detected: {}",
+                cycle_path
+            ));
         }
 
         Ok(())
@@ -96,7 +99,10 @@ mod tests {
             ],
         );
         graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
-        graph.insert("crate::infrastructure::bridge::antifraud".to_string(), vec![]);
+        graph.insert(
+            "crate::infrastructure::bridge::antifraud".to_string(),
+            vec![],
+        );
         graph.insert("crate::infrastructure::bridge::payment".to_string(), vec![]);
 
         let mut visited = HashSet::new();
@@ -178,7 +184,10 @@ mod tests {
         );
         graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
         graph.insert("crate::infrastructure::bridge::payment".to_string(), vec![]);
-        graph.insert("crate::infrastructure::bridge::s3_service".to_string(), vec![]);
+        graph.insert(
+            "crate::infrastructure::bridge::s3_service".to_string(),
+            vec![],
+        );
 
         let mut visited = HashSet::new();
         let mut current_path = Vec::new();
