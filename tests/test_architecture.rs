@@ -30,6 +30,7 @@ fn test_architectural_rules() {
             .it_may_depend_on(&[
                 "rust_arkitect::rule",
                 "rust_arkitect::rust_file",
+                "rust_arkitect::rust_project",
                 "ansi_term",
                 "log",
                 "std::env",
@@ -51,6 +52,7 @@ fn test_architectural_rules() {
         .rules_for_crate("rust_arkitect::rule")
             .it_may_depend_on(&[
                 "rust_arkitect::rust_file",
+                "rust_arkitect::rust_project",
                 "std::fmt",
             ])
 

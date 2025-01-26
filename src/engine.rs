@@ -1,5 +1,6 @@
 use crate::rule::{ProjectRule, Rule};
 use crate::rust_file::RustFile;
+use crate::rust_project::RustProject;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
 use log::{debug, error, info};
@@ -29,6 +30,19 @@ impl<'a> Engine<'a> {
     }
 
     pub(crate) fn compute_violations(mut self) -> Vec<String> {
+        let project = RustProject {};
+
+        self.project_rules.iter().for_each(|rule| {
+            debug!("🟢 Rule {} applied", rule);
+            match rule.apply(&project) {
+                Ok(_) => info!("\u{2705} Rule {} respected", rule),
+                Err(e) => {
+                    error!("🟥 Rule {} violated: {}", rule, e);
+                    self.violations.push(e)
+                }
+            }
+        });
+
         if is_workspace(self.absolute_path).is_ok() {
             info!("Workspace found: {}", self.absolute_path);
             self.validate_workspace(self.absolute_path);
