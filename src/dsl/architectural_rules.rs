@@ -93,6 +93,10 @@ impl ArchitecturalRules<ProjectDefined> {
             rules: self.rules,
         }
     }
+
+    pub fn build(self) -> Rules {
+        self.rules
+    }
 }
 
 impl ArchitecturalRules<SubjectDefined> {

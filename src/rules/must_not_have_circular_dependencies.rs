@@ -1,5 +1,3 @@
-// TODO: fixme
-
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
@@ -80,81 +78,162 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     #[test]
-    fn test_dfs_detect_cycle_no_cycle() {
+    fn test_realistic_no_cycle() {
+        // Un grafo realistico senza cicli
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("main".to_string(), vec!["lib".to_string()]);
-        graph.insert("lib".to_string(), vec!["utils".to_string()]);
-        graph.insert("utils".to_string(), vec![]);
+        graph.insert(
+            "crate::application::container".to_string(),
+            vec![
+                "crate::application::geographic_info".to_string(),
+                "crate::domain::aggregate::quote".to_string(),
+            ],
+        );
+        graph.insert(
+            "crate::application::geographic_info".to_string(),
+            vec![
+                "crate::infrastructure::bridge::antifraud".to_string(),
+                "crate::infrastructure::bridge::payment".to_string(),
+            ],
+        );
+        graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
+        graph.insert("crate::infrastructure::bridge::antifraud".to_string(), vec![]);
+        graph.insert("crate::infrastructure::bridge::payment".to_string(), vec![]);
 
         let mut visited = HashSet::new();
         let mut current_path = Vec::new();
 
-        let result = dfs_detect_cycle("main", &graph, &mut visited, &mut current_path);
+        let result = dfs_detect_cycle(
+            "crate::application::container",
+            &graph,
+            &mut visited,
+            &mut current_path,
+        );
 
-        // Non ci deve essere nessun ciclo
-        assert!(result.is_none(), "Expected no cycle, but found one.");
+        // Non ci deve essere alcun ciclo
+        assert!(result.is_none(), "Expected no cycle, but one was found.");
     }
 
     #[test]
-    fn test_dfs_detect_cycle_with_cycle() {
-        // (main -> lib -> utils -> main)
+    fn test_realistic_with_cycle() {
+        // Un grafo realistico con un ciclo tra i moduli
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("main".to_string(), vec!["lib".to_string()]);
-        graph.insert("lib".to_string(), vec!["utils".to_string()]);
-        graph.insert("utils".to_string(), vec!["main".to_string()]);
+        graph.insert(
+            "crate::application::container".to_string(),
+            vec![
+                "crate::application::geographic_info".to_string(),
+                "crate::domain::aggregate::quote".to_string(),
+            ],
+        );
+        graph.insert(
+            "crate::application::geographic_info".to_string(),
+            vec!["crate::infrastructure::bridge::payment".to_string()],
+        );
+        graph.insert(
+            "crate::infrastructure::bridge::payment".to_string(),
+            vec!["crate::application::container".to_string()], // Crea il ciclo
+        );
+        graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
 
         let mut visited = HashSet::new();
         let mut current_path = Vec::new();
 
-        let result = dfs_detect_cycle("main", &graph, &mut visited, &mut current_path);
+        let result = dfs_detect_cycle(
+            "crate::application::container",
+            &graph,
+            &mut visited,
+            &mut current_path,
+        );
 
+        // Deve trovare un ciclo
         assert!(result.is_some(), "Expected a cycle, but none was found.");
         assert_eq!(
             result.unwrap(),
-            "main -> lib -> utils -> main",
+            "crate::application::container -> crate::application::geographic_info -> crate::infrastructure::bridge::payment -> crate::application::container",
             "The detected cycle does not match the expected one."
         );
     }
 
     #[test]
-    fn test_dfs_detect_cycle_complex_graph_with_cycle() {
-        // (a -> b -> c -> d -> b)
+    fn test_realistic_large_graph_no_cycle() {
+        // Un grafo grande senza cicli
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("a".to_string(), vec!["b".to_string(), "e".to_string()]);
-        graph.insert("b".to_string(), vec!["c".to_string()]);
-        graph.insert("c".to_string(), vec!["d".to_string()]);
-        graph.insert("d".to_string(), vec!["b".to_string()]);
-        graph.insert("e".to_string(), vec!["f".to_string()]);
-        graph.insert("f".to_string(), vec![]);
+        graph.insert(
+            "crate::application::container".to_string(),
+            vec![
+                "crate::application::geographic_info".to_string(),
+                "crate::domain::aggregate::quote".to_string(),
+                "crate::domain::price".to_string(),
+            ],
+        );
+        graph.insert(
+            "crate::application::geographic_info".to_string(),
+            vec![
+                "crate::infrastructure::bridge::payment".to_string(),
+                "crate::infrastructure::bridge::s3_service".to_string(),
+            ],
+        );
+        graph.insert(
+            "crate::domain::price".to_string(),
+            vec!["crate::domain::aggregate::quote".to_string()],
+        );
+        graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
+        graph.insert("crate::infrastructure::bridge::payment".to_string(), vec![]);
+        graph.insert("crate::infrastructure::bridge::s3_service".to_string(), vec![]);
 
         let mut visited = HashSet::new();
         let mut current_path = Vec::new();
 
-        let result = dfs_detect_cycle("a", &graph, &mut visited, &mut current_path);
-
-        assert!(result.is_some(), "Expected a cycle, but none was found.");
-        assert_eq!(
-            result.unwrap(),
-            "b -> c -> d -> b",
-            "The detected cycle does not match the expected one."
+        let result = dfs_detect_cycle(
+            "crate::application::container",
+            &graph,
+            &mut visited,
+            &mut current_path,
         );
+
+        // Non ci deve essere alcun ciclo
+        assert!(result.is_none(), "Expected no cycle, but one was found.");
     }
 
     #[test]
-    fn test_dfs_detect_cycle_complex_graph_no_cycle() {
+    fn test_realistic_large_graph_with_complex_cycle() {
+        // Un grafo grande con un ciclo complesso
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("a".to_string(), vec!["b".to_string(), "e".to_string()]);
-        graph.insert("b".to_string(), vec!["c".to_string()]);
-        graph.insert("c".to_string(), vec!["d".to_string()]);
-        graph.insert("d".to_string(), vec![]);
-        graph.insert("e".to_string(), vec!["f".to_string()]);
-        graph.insert("f".to_string(), vec![]);
+        graph.insert(
+            "crate::application::container".to_string(),
+            vec![
+                "crate::application::geographic_info".to_string(),
+                "crate::domain::aggregate::quote".to_string(),
+            ],
+        );
+        graph.insert(
+            "crate::application::geographic_info".to_string(),
+            vec!["crate::domain::price".to_string()],
+        );
+        graph.insert(
+            "crate::domain::price".to_string(),
+            vec!["crate::domain::aggregate::quote".to_string()],
+        );
+        graph.insert(
+            "crate::domain::aggregate::quote".to_string(),
+            vec!["crate::application::container".to_string()], // Crea il ciclo
+        );
 
         let mut visited = HashSet::new();
         let mut current_path = Vec::new();
 
-        let result = dfs_detect_cycle("a", &graph, &mut visited, &mut current_path);
+        let result = dfs_detect_cycle(
+            "crate::application::container",
+            &graph,
+            &mut visited,
+            &mut current_path,
+        );
 
-        assert!(result.is_none(), "Expected no cycle, but found one.");
+        // Deve trovare un ciclo
+        assert!(result.is_some(), "Expected a cycle, but none was found.");
+        assert_eq!(
+            result.unwrap(),
+            "crate::application::container -> crate::application::geographic_info -> crate::domain::price -> crate::domain::aggregate::quote -> crate::application::container",
+            "The detected cycle does not match the expected one."
+        );
     }
 }

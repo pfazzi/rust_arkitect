@@ -19,7 +19,8 @@ impl RustFile {
             Err(e) => panic!("Failed to read file file://{}: {}", path, e),
         };
 
-        let binding = parse_module_logical_path(path).expect("Failed to compute module path");
+        let binding = parse_module_logical_path(path)
+            .expect(&format!("Failed to compute module path {path}"));
         let logical_path = binding.as_str();
 
         Self::from_content(path, logical_path, &content)
