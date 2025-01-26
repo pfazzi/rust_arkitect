@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use rust_arkitect::dsl::arkitect::Arkitect;
+use rust_arkitect::dsl::arkitect::{Arkitect, Rules};
 use rust_arkitect::dsl::project::Project;
 use rust_arkitect::rule::Rule;
 use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
@@ -37,7 +37,7 @@ fn test_custom_rule_execution() {
 
     let rule = Box::new(TestRule::new("my_crate", &["a:crate::a_module"]));
 
-    let result = Arkitect::ensure_that(project).complies_with(vec![rule]);
+    let result = Arkitect::ensure_that(project).complies_with(Rules::from_module_rules(vec![rule]));
 
     assert!(result.is_ok());
 }
@@ -51,7 +51,8 @@ fn test_may_depend_on_standalone() {
         vec!["a:crate::a_module".to_string()],
     );
 
-    let result = Arkitect::ensure_that(project).complies_with(vec![rule.into()]);
+    let result =
+        Arkitect::ensure_that(project).complies_with(Rules::from_module_rules(vec![rule.into()]));
 
     assert!(result.is_ok());
 }

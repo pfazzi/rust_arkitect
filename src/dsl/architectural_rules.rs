@@ -1,3 +1,4 @@
+use crate::dsl::arkitect::Rules;
 use crate::rule::Rule;
 use crate::rules::may_depend_on::MayDependOnRule;
 use crate::rules::must_not_depend_on::MustNotDependOnRule;
@@ -186,8 +187,8 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn build(self) -> Vec<Box<dyn Rule>> {
-        self.rules
+    pub fn build(self) -> Rules {
+        Rules::from(self.rules, vec![])
     }
 }
 

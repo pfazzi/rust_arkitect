@@ -1,4 +1,4 @@
-use crate::rule::Rule;
+use crate::rule::{ProjectRule, Rule};
 use crate::rust_file::RustFile;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
@@ -10,19 +10,25 @@ use toml::Value;
 pub(crate) struct Engine<'a> {
     absolute_path: &'a str,
     rules: &'a [Box<dyn Rule>],
+    project_rules: &'a [Box<dyn ProjectRule>],
     violations: Vec<String>,
 }
 
 impl<'a> Engine<'a> {
-    pub(crate) fn new(absolute_path: &'a str, rules: &'a [Box<dyn Rule>]) -> Self {
+    pub(crate) fn new(
+        absolute_path: &'a str,
+        rules: &'a [Box<dyn Rule>],
+        project_rules: &'a [Box<dyn ProjectRule>],
+    ) -> Self {
         Self {
             absolute_path,
             rules,
+            project_rules,
             violations: Default::default(),
         }
     }
 
-    pub(crate) fn get_violations(mut self) -> Vec<String> {
+    pub(crate) fn compute_violations(mut self) -> Vec<String> {
         if is_workspace(self.absolute_path).is_ok() {
             info!("Workspace found: {}", self.absolute_path);
             self.validate_workspace(self.absolute_path);
