@@ -30,6 +30,7 @@ fn test_architectural_rules() {
             .it_may_depend_on(&[
                 "rust_arkitect::rule",
                 "rust_arkitect::rust_file",
+                "rust_arkitect::rust_project",
                 "ansi_term",
                 "log",
                 "std::env",
@@ -41,34 +42,37 @@ fn test_architectural_rules() {
         .rules_for_module("rust_arkitect::rules")
             .it_may_depend_on(&[
                 "rust_arkitect::rust_file",
+                "rust_arkitect::rust_project",
                 "rust_arkitect::rule",
                 "rust_arkitect::dependency_parsing",
                 "ansi_term",
                 "log",
-                "std::fmt"
+                "std::fmt",
+                "std::collections",
             ])
 
         .rules_for_crate("rust_arkitect::rule")
             .it_may_depend_on(&[
                 "rust_arkitect::rust_file",
+                "rust_arkitect::rust_project",
                 "std::fmt",
+            ])
+
+        .rules_for_crate("rust_arkitect::rust_file")
+            .it_may_depend_on(&[
+                "rust_arkitect::dependency_parsing",    // Used to parse dependencies
+                "std::path",                            // Used to navigate the file system and get the logical name of the module
+                "syn",                                  // Used to parse Rust code and build the AST
+                "toml",                                 // Used to read Cargo.toml and find the crate of the file
             ])
 
         .rules_for_crate("rust_arkitect::dependency_parsing")
             .it_may_depend_on(&[
-                "rust_arkitect::rust_file",
                 "syn",
                 "std::collections",
                 "std::path",
                 "std::ops",
                 "std::fs"
-            ])
-
-        .rules_for_crate("rust_arkitect::rust_file")
-            .it_may_depend_on(&[
-                "std::path", // Used to navigate the file system and get the logical name of the module
-                "syn",       // Used to parse Rust code and build the AST
-                "toml",      // Used to read Cargo.toml and find the crate of the file
             ])
 
         .build();

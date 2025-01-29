@@ -1,4 +1,3 @@
-use crate::dependency_parsing::get_dependencies_in_file;
 use crate::rule::Rule;
 use crate::rules::utils::IsChild;
 use crate::rust_file::RustFile;
@@ -36,9 +35,8 @@ impl Display for MustNotDependOnAnythingRule {
 
 impl Rule for MustNotDependOnAnythingRule {
     fn apply(&self, file: &RustFile) -> Result<(), String> {
-        let dependencies = get_dependencies_in_file(&file);
-
-        let forbidden_dependencies: Vec<String> = dependencies
+        let forbidden_dependencies: Vec<String> = file
+            .dependencies
             .iter()
             .filter(|&dependency| {
                 !(dependency.is_child_of(&self.subject)

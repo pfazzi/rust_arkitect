@@ -1,16 +1,21 @@
+use crate::dsl::arkitect::Rules;
 use crate::rule::Rule;
 use crate::rules::may_depend_on::MayDependOnRule;
 use crate::rules::must_not_depend_on::MustNotDependOnRule;
 use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
+use crate::rules::must_not_have_circular_dependencies::MustNotHaveCircularDependencies;
 use std::marker::PhantomData;
 
 pub struct Begin;
 pub struct SubjectDefined;
+pub struct ProjectDefined;
+pub struct ProjectBegin;
 pub struct RulesDefined;
+
 pub struct ArchitecturalRules<State> {
     state: PhantomData<State>,
     current_subject: Option<String>,
-    rules: Vec<Box<dyn Rule>>,
+    rules: Rules,
 }
 
 pub trait SubjectInjectableRuleBuilder {
@@ -22,7 +27,10 @@ impl ArchitecturalRules<Begin> {
         Self {
             state: PhantomData,
             current_subject: None,
-            rules: vec![],
+            rules: Rules {
+                module_rules: vec![],
+                project_rules: vec![],
+            },
         }
     }
 
@@ -41,6 +49,57 @@ impl ArchitecturalRules<Begin> {
             rules: self.rules,
         }
     }
+
+    pub fn rules_for_project(self) -> ArchitecturalRules<ProjectBegin> {
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: None,
+            rules: self.rules,
+        }
+    }
+}
+
+impl ArchitecturalRules<ProjectBegin> {
+    pub fn it_must_not_have_circular_dependencies(
+        self,
+        max_depth: usize,
+    ) -> ArchitecturalRules<ProjectDefined> {
+        let rule = Box::new(MustNotHaveCircularDependencies { max_depth });
+
+        let mut project_rules = self.rules.project_rules;
+        project_rules.push(rule);
+
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: self.current_subject,
+            rules: Rules {
+                project_rules,
+                ..self.rules
+            },
+        }
+    }
+}
+
+impl ArchitecturalRules<ProjectDefined> {
+    pub fn rules_for_crate(self, crate_name: &str) -> ArchitecturalRules<SubjectDefined> {
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: Some(String::from(crate_name)),
+            rules: self.rules,
+        }
+    }
+
+    pub fn rules_for_module(self, crate_name: &str) -> ArchitecturalRules<SubjectDefined> {
+        ArchitecturalRules {
+            state: PhantomData,
+            current_subject: Some(String::from(crate_name)),
+            rules: self.rules,
+        }
+    }
+
+    pub fn build(self) -> Rules {
+        self.rules
+    }
 }
 
 impl ArchitecturalRules<SubjectDefined> {
@@ -50,13 +109,16 @@ impl ArchitecturalRules<SubjectDefined> {
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
         });
 
-        let mut rules = self.rules;
+        let mut rules = self.rules.module_rules;
         rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -66,13 +128,16 @@ impl ArchitecturalRules<SubjectDefined> {
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
         });
 
-        let mut rules = self.rules;
+        let mut rules = self.rules.module_rules;
         rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -82,13 +147,16 @@ impl ArchitecturalRules<SubjectDefined> {
             allowed_external_dependencies: vec![],
         });
 
-        let mut rules = self.rules;
+        let mut rules = self.rules.module_rules;
         rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -96,13 +164,18 @@ impl ArchitecturalRules<SubjectDefined> {
         self,
         rule: Box<dyn SubjectInjectableRuleBuilder>,
     ) -> ArchitecturalRules<RulesDefined> {
-        let mut rules = self.rules;
-        rules.push(rule.for_subject(self.current_subject.as_ref().unwrap()));
+        let rule = rule.for_subject(self.current_subject.as_ref().unwrap());
+
+        let mut rules = self.rules.module_rules;
+        rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 }
@@ -114,13 +187,16 @@ impl ArchitecturalRules<RulesDefined> {
             allowed_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
         });
 
-        let mut rules = self.rules;
+        let mut rules = self.rules.module_rules;
         rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -130,13 +206,16 @@ impl ArchitecturalRules<RulesDefined> {
             forbidden_dependencies: dependencies.iter().map(|&s| s.to_string()).collect(),
         });
 
-        let mut rules = self.rules;
+        let mut rules = self.rules.module_rules;
         rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -146,13 +225,16 @@ impl ArchitecturalRules<RulesDefined> {
             allowed_external_dependencies: vec![],
         });
 
-        let mut rules = self.rules;
+        let mut rules = self.rules.module_rules;
         rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -160,13 +242,18 @@ impl ArchitecturalRules<RulesDefined> {
         self,
         rule: Box<dyn SubjectInjectableRuleBuilder>,
     ) -> ArchitecturalRules<RulesDefined> {
-        let mut rules = self.rules;
-        rules.push(rule.for_subject(self.current_subject.as_ref().unwrap()));
+        let rule = rule.for_subject(self.current_subject.as_ref().unwrap());
+
+        let mut rules = self.rules.module_rules;
+        rules.push(rule);
 
         ArchitecturalRules {
             state: PhantomData,
             current_subject: self.current_subject,
-            rules,
+            rules: Rules {
+                module_rules: rules,
+                ..self.rules
+            },
         }
     }
 
@@ -186,7 +273,7 @@ impl ArchitecturalRules<RulesDefined> {
         }
     }
 
-    pub fn build(self) -> Vec<Box<dyn Rule>> {
+    pub fn build(self) -> Rules {
         self.rules
     }
 }
@@ -304,6 +391,8 @@ mod tests {
     fn test_subject_injection() {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
+            .rules_for_project()
+                .it_must_not_have_circular_dependencies(3)
             .rules_for_crate("a_crate")
                 .it(MustNotContainAttribute::new("#[test]"))
                 .and_it(MustNotContainAttribute::new("#[rustfmt::skip]"))
@@ -324,6 +413,6 @@ mod tests {
                 .it_must_not_depend_on_anything()
             .build();
 
-        assert_eq!(rules.len(), 12);
+        assert_eq!(rules.len(), 13);
     }
 }

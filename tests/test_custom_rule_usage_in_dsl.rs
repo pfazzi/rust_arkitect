@@ -31,8 +31,9 @@ impl Rule for TestRule {
 #[cfg(test)]
 mod tests {
     use crate::TestRule;
-    use rust_arkitect::dsl::arkitect::Arkitect;
+    use rust_arkitect::dsl::arkitect::{Arkitect, Rules};
     use rust_arkitect::dsl::project::Project;
+    use rust_arkitect::rule::Rule;
     use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
 
     #[test]
@@ -41,7 +42,11 @@ mod tests {
 
         let rule = Box::new(TestRule::new("my_crate", &["a:crate::a_module"]));
 
-        let result = Arkitect::ensure_that(project).complies_with(vec![rule]);
+        let rules: Vec<Box<dyn Rule>> = vec![rule];
+
+        let rules = Rules::from_module_rules(rules);
+
+        let result = Arkitect::ensure_that(project).complies_with(rules);
 
         assert!(result.is_ok());
     }
@@ -55,7 +60,11 @@ mod tests {
             vec!["a:crate::a_module".to_string()],
         );
 
-        let result = Arkitect::ensure_that(project).complies_with(vec![rule.into()]);
+        let rules: Vec<Box<dyn Rule>> = vec![rule.into()];
+
+        let rules = Rules::from_module_rules(rules);
+
+        let result = Arkitect::ensure_that(project).complies_with(rules);
 
         assert!(result.is_ok());
     }

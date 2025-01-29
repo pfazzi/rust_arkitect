@@ -7,6 +7,34 @@ pub struct Project {
 
 impl Project {
     pub fn from_path(absolute_path: &str) -> Project {
+        let path = Path::new(absolute_path);
+        if !path.exists() {
+            panic!("The provided path '{}' does not exist.", absolute_path);
+        }
+
+        let cargo_toml_path = path.join("Cargo.toml");
+
+        if !cargo_toml_path.exists() {
+            panic!(
+                "The provided path '{}' does not contain a `Cargo.toml` file.",
+                absolute_path
+            );
+        }
+
+        if let Ok(contents) = fs::read_to_string(&cargo_toml_path) {
+            if !contents.contains("[package]") && !contents.contains("[workspace]") {
+                panic!(
+                    "`Cargo.toml` at '{}' is invalid: it must contain `[package]` or `[workspace]`.",
+                    cargo_toml_path.display()
+                );
+            }
+        } else {
+            panic!(
+                "Failed to read the `Cargo.toml` file at '{}'.",
+                cargo_toml_path.display()
+            );
+        }
+
         Project {
             project_root: absolute_path.to_string(),
         }
