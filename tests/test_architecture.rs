@@ -47,7 +47,6 @@ fn test_architectural_rules() {
                 "rust_arkitect::rust_file",
                 "rust_arkitect::rust_project",
                 "rust_arkitect::rule",
-                "rust_arkitect::dependency_parsing",
                 "ansi_term",
                 "log",
                 "std::fmt",
@@ -63,7 +62,7 @@ fn test_architectural_rules() {
 
         .rules_for_crate("rust_arkitect::rust_file")
             .it_may_depend_on(&[
-                "rust_arkitect::dependency_parsing",    // Used to parse dependencies
+                "rust_arkitect::dependency_parsing",    // Used to parse dependencies, only this module is allowed to depend on it
                 "std::path",                            // Used to navigate the file system and get the logical name of the module
                 "syn",                                  // Used to parse Rust code and build the AST
                 "toml",                                 // Used to read Cargo.toml and find the crate of the file
