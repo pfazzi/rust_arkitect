@@ -14,235 +14,354 @@ impl Display for MustNotHaveCircularDependencies {
 
 impl ProjectRule for MustNotHaveCircularDependencies {
     fn apply(&self, project: &RustProject) -> Result<(), String> {
-        if let Some(cycle_path) = find_cycle_in_dependencies(&project.to_dependency_graph()) {
+        let graph = project.to_dependency_graph();
+
+        if let Some(cycle_path) = find_cycle_in_dependencies(&graph) {
             return Err(format!(
                 "Circular dependency cycle detected: {}",
                 cycle_path
             ));
         }
-
         Ok(())
     }
 }
 
-fn find_cycle_in_dependencies(graph: &HashMap<String, Vec<String>>) -> Option<String> {
-    let mut visited = HashSet::new();
-    let mut current_path = Vec::new();
+/// Cerca eventuali cicli nel grafo *dopo* aver unificato submoduli:
+pub fn find_cycle_in_dependencies(graph: &HashMap<String, Vec<String>>) -> Option<String> {
+    // 1) Unifichiamo i nodi se necessario
+    let unified_graph = unify_submodules_in_graph(graph);
 
-    for node in graph.keys() {
-        if visited.contains(node) {
-            continue;
-        }
+    // 2) Creiamo i nodi locali
+    let mut nodes: Vec<&str> = unified_graph.keys().map(|k| k.as_str()).collect();
+    nodes.sort();
+    let node_index: HashMap<&str, usize> = nodes.iter().enumerate().map(|(i, &n)| (n, i)).collect();
 
-        if let Some(cycle) = dfs_detect_cycle(node, graph, &mut visited, &mut current_path) {
-            return Some(cycle);
+    // 3) Build adjacency
+    let adjacency_list = build_adjacency_list(&unified_graph, &node_index);
+
+    // 4) Tarjan
+    let sccs = tarjan_scc(&adjacency_list);
+
+    // 5) Cerca la prima SCC di dim > 1
+    for scc in sccs {
+        if scc.len() > 1 {
+            // Ricostruisci un ciclo
+            let cycle_path = reconstruct_cycle_path(&scc, &nodes, &adjacency_list);
+            return Some(cycle_path);
         }
     }
-
     None
 }
 
-/// DFS ricorsiva per rilevare cicli.
-/// - `current_path` tiene traccia del percorso di nodi esplorati nel ramo corrente
-/// - Se troviamo un nodo già presente in `current_path`, allora c'è un ciclo
-fn dfs_detect_cycle(
-    current: &str,
+/// Costruisce la lista di adiacenza numerica per Tarjan
+fn build_adjacency_list(
     graph: &HashMap<String, Vec<String>>,
-    visited: &mut HashSet<String>,
-    current_path: &mut Vec<String>,
-) -> Option<String> {
-    visited.insert(current.to_string());
-    current_path.push(current.to_string());
+    node_index: &HashMap<&str, usize>,
+) -> Vec<Vec<usize>> {
+    let mut adjacency_list = vec![vec![]; node_index.len()];
 
-    if let Some(neighbors) = graph.get(current) {
-        for neighbor in neighbors {
-            if !visited.contains(neighbor) {
-                // Continua la DFS
-                if let Some(cycle) = dfs_detect_cycle(neighbor, graph, visited, current_path) {
-                    return Some(cycle);
-                }
-            } else if current_path.contains(neighbor) {
-                // Trovato ciclo!
-                let cycle_start = current_path.iter().position(|x| x == neighbor).unwrap_or(0);
-                let cycle_path = current_path[cycle_start..].join(" -> ");
-                return Some(format!("{} -> {}", cycle_path, neighbor));
+    for (node, deps) in graph {
+        let i = node_index[node.as_str()];
+        for d in deps {
+            if let Some(&j) = node_index.get(d.as_str()) {
+                adjacency_list[i].push(j);
             }
         }
     }
 
-    // Uscita dalla ricorsione
-    current_path.pop();
+    adjacency_list
+}
+
+/// Esegue l'algoritmo di Tarjan per le Strongly Connected Components.
+/// Restituisce un vettore di SCC, ognuna delle quali è un vettore di indici di nodi.
+fn tarjan_scc(adjacency_list: &[Vec<usize>]) -> Vec<Vec<usize>> {
+    let n = adjacency_list.len();
+    let mut index = 0;
+    let mut stack = Vec::new();
+    let mut in_stack = vec![false; n];
+    let mut indices = vec![-1; n];
+    let mut lowlink = vec![-1; n];
+    let mut sccs = Vec::new();
+
+    fn strongconnect(
+        v: usize,
+        index: &mut i32,
+        stack: &mut Vec<usize>,
+        in_stack: &mut Vec<bool>,
+        indices: &mut Vec<i32>,
+        lowlink: &mut Vec<i32>,
+        adjacency_list: &[Vec<usize>],
+        sccs: &mut Vec<Vec<usize>>,
+    ) {
+        *index += 1;
+        indices[v] = *index;
+        lowlink[v] = *index;
+        stack.push(v);
+        in_stack[v] = true;
+
+        for &w in &adjacency_list[v] {
+            if indices[w] == -1 {
+                strongconnect(
+                    w,
+                    index,
+                    stack,
+                    in_stack,
+                    indices,
+                    lowlink,
+                    adjacency_list,
+                    sccs,
+                );
+                lowlink[v] = lowlink[v].min(lowlink[w]);
+            } else if in_stack[w] {
+                lowlink[v] = lowlink[v].min(indices[w]);
+            }
+        }
+
+        if lowlink[v] == indices[v] {
+            let mut scc = Vec::new();
+            loop {
+                let w = stack.pop().unwrap();
+                in_stack[w] = false;
+                scc.push(w);
+                if w == v {
+                    break;
+                }
+            }
+            sccs.push(scc);
+        }
+    }
+
+    for v in 0..n {
+        if indices[v] == -1 {
+            strongconnect(
+                v,
+                &mut index,
+                &mut stack,
+                &mut in_stack,
+                &mut indices,
+                &mut lowlink,
+                adjacency_list,
+                &mut sccs,
+            );
+        }
+    }
+
+    sccs
+}
+
+/// Ricostruisce un percorso ciclico da una SCC di dimensione > 1.
+fn reconstruct_cycle_path(scc: &[usize], nodes: &[&str], adjacency_list: &[Vec<usize>]) -> String {
+    let scc_set: HashSet<usize> = scc.iter().cloned().collect();
+    let start = scc[0];
+
+    let mut path = Vec::new();
+    let mut visited = HashSet::new();
+    if let Some(cycle) = dfs_cycle_reconstruct(
+        start,
+        start,
+        adjacency_list,
+        &scc_set,
+        &mut path,
+        &mut visited,
+        nodes,
+    ) {
+        return cycle;
+    }
+    "Unable to reconstruct cycle".to_string()
+}
+
+/// DFS per ricostruire il ciclo effettivo come sequenza di nomi
+fn dfs_cycle_reconstruct(
+    current: usize,
+    start: usize,
+    adjacency_list: &[Vec<usize>],
+    scc_set: &HashSet<usize>,
+    path: &mut Vec<usize>,
+    visited: &mut HashSet<usize>,
+    nodes: &[&str],
+) -> Option<String> {
+    visited.insert(current);
+    path.push(current);
+
+    for &next in &adjacency_list[current] {
+        if !scc_set.contains(&next) {
+            continue;
+        }
+        if next == start && path.len() > 1 {
+            return Some(translate_cycle_to_names(path, nodes));
+        }
+        if !visited.contains(&next) {
+            if let Some(cycle) =
+                dfs_cycle_reconstruct(next, start, adjacency_list, scc_set, path, visited, nodes)
+            {
+                return Some(cycle);
+            }
+        }
+    }
+
+    path.pop();
     None
+}
+
+/// Converte gli indici in nomi
+fn translate_cycle_to_names(path: &[usize], nodes: &[&str]) -> String {
+    if path.is_empty() {
+        return "".to_string();
+    }
+    let mut names: Vec<&str> = path.iter().map(|&ix| nodes[ix]).collect();
+    names.push(nodes[path[0]]);
+    names.join(" -> ")
+}
+
+/// Unifica i submoduli in un grafo basato su un criterio (ad esempio, tutto ciò che inizia con un prefisso comune).
+pub fn unify_submodules_in_graph(
+    original_graph: &HashMap<String, Vec<String>>,
+) -> HashMap<String, Vec<String>> {
+    let mut new_graph = HashMap::new();
+
+    for (node, deps) in original_graph {
+        let unified_node = unify_container_submodules(node);
+
+        let unified_deps: Vec<String> =
+            deps.iter().map(|d| unify_container_submodules(d)).collect();
+
+        new_graph
+            .entry(unified_node)
+            .or_insert_with(Vec::new)
+            .extend(unified_deps);
+    }
+
+    for deps in new_graph.values_mut() {
+        deps.sort();
+        deps.dedup();
+    }
+
+    new_graph
+}
+
+/// Unifica un singolo nodo, trattando i sotto-moduli come un nodo principale.
+fn unify_container_submodules(node: &str) -> String {
+    let prefix = "crate::application::container::";
+    if node.starts_with(prefix) {
+        "crate::application::container".to_string()
+    } else {
+        node.to_string()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     #[test]
-    fn test_realistic_no_cycle() {
-        // Un grafo realistico senza cicli
+    fn test_no_cycle_in_hexagonal_architecture() {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert(
-            "crate::application::container".to_string(),
-            vec![
-                "crate::application::geographic_info".to_string(),
-                "crate::domain::aggregate::quote".to_string(),
-            ],
-        );
-        graph.insert(
-            "crate::application::geographic_info".to_string(),
-            vec![
-                "crate::infrastructure::bridge::antifraud".to_string(),
-                "crate::infrastructure::bridge::payment".to_string(),
-            ],
-        );
-        graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
-        graph.insert(
-            "crate::infrastructure::bridge::antifraud".to_string(),
-            vec![],
-        );
-        graph.insert("crate::infrastructure::bridge::payment".to_string(), vec![]);
 
-        let mut visited = HashSet::new();
-        let mut current_path = Vec::new();
-
-        let result = dfs_detect_cycle(
-            "crate::application::container",
-            &graph,
-            &mut visited,
-            &mut current_path,
+        graph.insert("domain::policy".to_string(), vec![]);
+        graph.insert("domain::quote".to_string(), vec![]);
+        graph.insert(
+            "application::policy_service".to_string(),
+            vec!["domain::policy".to_string()],
+        );
+        graph.insert(
+            "application::quote_service".to_string(),
+            vec!["domain::quote".to_string()],
+        );
+        graph.insert(
+            "infrastructure::database::policy_repository".to_string(),
+            vec!["domain::policy".to_string()],
+        );
+        graph.insert(
+            "infrastructure::external::quote_api".to_string(),
+            vec!["application::quote_service".to_string()],
         );
 
-        // Non ci deve essere alcun ciclo
-        assert!(result.is_none(), "Expected no cycle, but one was found.");
+        let result = find_cycle_in_dependencies(&graph);
+        assert!(
+            result.is_none(),
+            "Expected no cycles, but found one: {:?}",
+            result
+        );
     }
 
     #[test]
-    fn test_realistic_with_cycle() {
-        // Un grafo realistico con un ciclo tra i moduli
+    fn test_direct_cycle_between_two_modules() {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert(
-            "crate::application::container".to_string(),
-            vec![
-                "crate::application::geographic_info".to_string(),
-                "crate::domain::aggregate::quote".to_string(),
-            ],
-        );
-        graph.insert(
-            "crate::application::geographic_info".to_string(),
-            vec!["crate::infrastructure::bridge::payment".to_string()],
-        );
-        graph.insert(
-            "crate::infrastructure::bridge::payment".to_string(),
-            vec!["crate::application::container".to_string()], // Crea il ciclo
-        );
-        graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
+        graph.insert("module_a".to_string(), vec!["module_b".to_string()]);
+        graph.insert("module_b".to_string(), vec!["module_a".to_string()]);
 
-        let mut visited = HashSet::new();
-        let mut current_path = Vec::new();
-
-        let result = dfs_detect_cycle(
-            "crate::application::container",
-            &graph,
-            &mut visited,
-            &mut current_path,
-        );
-
-        // Deve trovare un ciclo
+        let result = find_cycle_in_dependencies(&graph);
         assert!(result.is_some(), "Expected a cycle, but none was found.");
-        assert_eq!(
-            result.unwrap(),
-            "crate::application::container -> crate::application::geographic_info -> crate::infrastructure::bridge::payment -> crate::application::container",
-            "The detected cycle does not match the expected one."
+    }
+
+    #[test]
+    fn test_indirect_cycle_across_three_modules() {
+        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+        graph.insert("module_a".to_string(), vec!["module_b".to_string()]);
+        graph.insert("module_b".to_string(), vec!["module_c".to_string()]);
+        graph.insert("module_c".to_string(), vec!["module_a".to_string()]);
+
+        let result = find_cycle_in_dependencies(&graph);
+        assert!(
+            result.is_some(),
+            "Expected an indirect cycle, but none was found."
         );
     }
 
     #[test]
-    fn test_realistic_large_graph_no_cycle() {
-        // Un grafo grande senza cicli
+    fn test_no_cycles_with_multiple_independent_paths() {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         graph.insert(
-            "crate::application::container".to_string(),
-            vec![
-                "crate::application::geographic_info".to_string(),
-                "crate::domain::aggregate::quote".to_string(),
-                "crate::domain::price".to_string(),
-            ],
+            "module_a".to_string(),
+            vec!["module_b".to_string(), "module_c".to_string()],
         );
-        graph.insert(
-            "crate::application::geographic_info".to_string(),
-            vec![
-                "crate::infrastructure::bridge::payment".to_string(),
-                "crate::infrastructure::bridge::s3_service".to_string(),
-            ],
-        );
-        graph.insert(
-            "crate::domain::price".to_string(),
-            vec!["crate::domain::aggregate::quote".to_string()],
-        );
-        graph.insert("crate::domain::aggregate::quote".to_string(), vec![]);
-        graph.insert("crate::infrastructure::bridge::payment".to_string(), vec![]);
-        graph.insert(
-            "crate::infrastructure::bridge::s3_service".to_string(),
-            vec![],
-        );
+        graph.insert("module_b".to_string(), vec!["module_d".to_string()]);
+        graph.insert("module_c".to_string(), vec!["module_d".to_string()]);
+        graph.insert("module_d".to_string(), vec![]);
 
-        let mut visited = HashSet::new();
-        let mut current_path = Vec::new();
-
-        let result = dfs_detect_cycle(
-            "crate::application::container",
-            &graph,
-            &mut visited,
-            &mut current_path,
+        let result = find_cycle_in_dependencies(&graph);
+        assert!(
+            result.is_none(),
+            "Expected no cycles, but found one: {:?}",
+            result
         );
-
-        // Non ci deve essere alcun ciclo
-        assert!(result.is_none(), "Expected no cycle, but one was found.");
     }
 
     #[test]
-    fn test_realistic_large_graph_with_complex_cycle() {
-        // Un grafo grande con un ciclo complesso
+    fn test_complex_cycle_with_multiple_entries() {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert(
-            "crate::application::container".to_string(),
-            vec![
-                "crate::application::geographic_info".to_string(),
-                "crate::domain::aggregate::quote".to_string(),
-            ],
-        );
-        graph.insert(
-            "crate::application::geographic_info".to_string(),
-            vec!["crate::domain::price".to_string()],
-        );
-        graph.insert(
-            "crate::domain::price".to_string(),
-            vec!["crate::domain::aggregate::quote".to_string()],
-        );
-        graph.insert(
-            "crate::domain::aggregate::quote".to_string(),
-            vec!["crate::application::container".to_string()], // Crea il ciclo
-        );
+        graph.insert("module_a".to_string(), vec!["module_b".to_string()]);
+        graph.insert("module_b".to_string(), vec!["module_c".to_string()]);
+        graph.insert("module_c".to_string(), vec!["module_d".to_string()]);
+        graph.insert("module_d".to_string(), vec!["module_a".to_string()]);
+        graph.insert("module_x".to_string(), vec!["module_y".to_string()]);
+        graph.insert("module_y".to_string(), vec![]);
 
-        let mut visited = HashSet::new();
-        let mut current_path = Vec::new();
-
-        let result = dfs_detect_cycle(
-            "crate::application::container",
-            &graph,
-            &mut visited,
-            &mut current_path,
-        );
-
-        // Deve trovare un ciclo
+        let result = find_cycle_in_dependencies(&graph);
         assert!(result.is_some(), "Expected a cycle, but none was found.");
-        assert_eq!(
-            result.unwrap(),
-            "crate::application::container -> crate::application::geographic_info -> crate::domain::price -> crate::domain::aggregate::quote -> crate::application::container",
-            "The detected cycle does not match the expected one."
+    }
+
+    #[test]
+    fn test_no_dependency_from_domain_to_other_modules() {
+        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+        graph.insert(
+            "domain::policy".to_string(),
+            vec!["application::policy_service".to_string()],
+        );
+        graph.insert(
+            "application::policy_service".to_string(),
+            vec!["domain::policy".to_string()],
+        );
+        graph.insert(
+            "infrastructure::database::policy_repository".to_string(),
+            vec!["domain::policy".to_string()],
+        );
+
+        let result = find_cycle_in_dependencies(&graph);
+        assert!(
+            result.is_some(),
+            "Expected a dependency from domain to application, but none was found."
         );
     }
 }

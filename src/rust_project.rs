@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -91,14 +91,38 @@ impl RustProject {
         path.extension().map(|ext| ext == "rs").unwrap_or(false)
     }
 
-    /// TODO: fixme
     pub fn to_dependency_graph(&self) -> HashMap<String, Vec<String>> {
         let mut graph = HashMap::new();
         for f in &self.files {
-            graph.insert(f.logical_path.clone(), f.dependencies.clone());
+            graph.insert(
+                f.logical_path.clone(),
+                f.dependencies.iter().map(extract_module).collect(),
+            );
         }
-        graph
+        remove_duplicates(&graph)
     }
+}
+
+fn extract_module(logical_path: &String) -> String {
+    logical_path
+        .rsplitn(2, "::")
+        .nth(1)
+        .map(String::from)
+        .expect("A valid module path")
+}
+
+fn remove_duplicates(map: &HashMap<String, Vec<String>>) -> HashMap<String, Vec<String>> {
+    map.iter()
+        .map(|(key, values)| {
+            let unique_values: Vec<String> = values
+                .iter()
+                .cloned()
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect();
+            (key.clone(), unique_values)
+        })
+        .collect()
 }
 
 #[cfg(test)]
