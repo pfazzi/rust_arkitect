@@ -60,8 +60,11 @@ impl ArchitecturalRules<Begin> {
 }
 
 impl ArchitecturalRules<ProjectBegin> {
-    pub fn it_must_not_have_circular_dependencies(self) -> ArchitecturalRules<ProjectDefined> {
-        let rule = Box::new(MustNotHaveCircularDependencies {});
+    pub fn it_must_not_have_circular_dependencies(
+        self,
+        max_depth: usize,
+    ) -> ArchitecturalRules<ProjectDefined> {
+        let rule = Box::new(MustNotHaveCircularDependencies { max_depth });
 
         let mut project_rules = self.rules.project_rules;
         project_rules.push(rule);
@@ -389,7 +392,7 @@ mod tests {
         #[rustfmt::skip]
         let rules = ArchitecturalRules::define()
             .rules_for_project()
-                .it_must_not_have_circular_dependencies()
+                .it_must_not_have_circular_dependencies(3)
             .rules_for_crate("a_crate")
                 .it(MustNotContainAttribute::new("#[test]"))
                 .and_it(MustNotContainAttribute::new("#[rustfmt::skip]"))

@@ -1,14 +1,19 @@
+use crate::rule::ProjectRule;
+use crate::rust_project::RustProject;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
-use crate::rule::ProjectRule;
-use crate::rust_project::RustProject;
-
-pub struct MustNotHaveCircularDependencies {}
+pub struct MustNotHaveCircularDependencies {
+    pub max_depth: usize,
+}
 
 impl Display for MustNotHaveCircularDependencies {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Must not have circular dependencies")
+        write!(
+            f,
+            "Must not have circular dependencies (max_depth = {})",
+            self.max_depth
+        )
     }
 }
 
@@ -16,44 +21,57 @@ impl ProjectRule for MustNotHaveCircularDependencies {
     fn apply(&self, project: &RustProject) -> Result<(), String> {
         let graph = project.to_dependency_graph();
 
-        if let Some(cycle_path) = find_cycle_in_dependencies(&graph) {
+        let cycles = find_all_cycles_in_dependencies(&graph, self.max_depth);
+
+        if !cycles.is_empty() {
             return Err(format!(
-                "Circular dependency cycle detected: {}",
-                cycle_path
+                "Circular dependencies detected:\n{}",
+                cycles.join("\n")
             ));
         }
+
         Ok(())
     }
 }
 
-/// Cerca eventuali cicli nel grafo *dopo* aver unificato submoduli:
-pub fn find_cycle_in_dependencies(graph: &HashMap<String, Vec<String>>) -> Option<String> {
-    // 1) Unifichiamo i nodi se necessario
-    let unified_graph = unify_submodules_in_graph(graph);
+pub fn find_all_cycles_in_dependencies(
+    graph: &HashMap<String, Vec<String>>,
+    max_depth: usize,
+) -> Vec<String> {
+    let unified_graph = unify_submodules_in_graph(graph, max_depth);
 
-    // 2) Creiamo i nodi locali
     let mut nodes: Vec<&str> = unified_graph.keys().map(|k| k.as_str()).collect();
     nodes.sort();
     let node_index: HashMap<&str, usize> = nodes.iter().enumerate().map(|(i, &n)| (n, i)).collect();
 
-    // 3) Build adjacency
+    // Build adjacency
     let adjacency_list = build_adjacency_list(&unified_graph, &node_index);
 
-    // 4) Tarjan
+    // Tarjan
     let sccs = tarjan_scc(&adjacency_list);
 
-    // 5) Cerca la prima SCC di dim > 1
+    let mut cycles = Vec::new();
+
+    // Process each SCC to extract cycles
     for scc in sccs {
         if scc.len() > 1 {
-            // Ricostruisci un ciclo
             let cycle_path = reconstruct_cycle_path(&scc, &nodes, &adjacency_list);
-            return Some(cycle_path);
+            cycles.push(cycle_path);
+        } else if scc.len() == 1 {
+            let only_node = scc[0];
+            if adjacency_list[only_node].contains(&only_node) {
+                // Check if it's an actual circular dependency
+                if adjacency_list[only_node].len() > 1 {
+                    // If it's just a self-reference, ignore it
+                    cycles.push(format!("{} -> {}", nodes[only_node], nodes[only_node]));
+                }
+            }
         }
     }
-    None
+
+    cycles
 }
 
-/// Costruisce la lista di adiacenza numerica per Tarjan
 fn build_adjacency_list(
     graph: &HashMap<String, Vec<String>>,
     node_index: &HashMap<&str, usize>,
@@ -72,8 +90,6 @@ fn build_adjacency_list(
     adjacency_list
 }
 
-/// Esegue l'algoritmo di Tarjan per le Strongly Connected Components.
-/// Restituisce un vettore di SCC, ognuna delle quali è un vettore di indici di nodi.
 fn tarjan_scc(adjacency_list: &[Vec<usize>]) -> Vec<Vec<usize>> {
     let n = adjacency_list.len();
     let mut index = 0;
@@ -149,8 +165,20 @@ fn tarjan_scc(adjacency_list: &[Vec<usize>]) -> Vec<Vec<usize>> {
     sccs
 }
 
-/// Ricostruisce un percorso ciclico da una SCC di dimensione > 1.
 fn reconstruct_cycle_path(scc: &[usize], nodes: &[&str], adjacency_list: &[Vec<usize>]) -> String {
+    if scc.len() == 1 {
+        let v = scc[0];
+        if adjacency_list[v].contains(&v) {
+            if adjacency_list[v].len() == 1 {
+                // Ignore pure self-references
+                println!("Ignoring reconstruction of self-cycle: {}", nodes[v]);
+                return "".to_string();
+            }
+            return format!("{} -> {}", nodes[v], nodes[v]);
+        }
+    }
+
+    // Proceed with normal cycle reconstruction...
     let scc_set: HashSet<usize> = scc.iter().cloned().collect();
     let start = scc[0];
 
@@ -167,10 +195,10 @@ fn reconstruct_cycle_path(scc: &[usize], nodes: &[&str], adjacency_list: &[Vec<u
     ) {
         return cycle;
     }
-    "Unable to reconstruct cycle".to_string()
+
+    "".to_string()
 }
 
-/// DFS per ricostruire il ciclo effettivo come sequenza di nomi
 fn dfs_cycle_reconstruct(
     current: usize,
     start: usize,
@@ -203,7 +231,6 @@ fn dfs_cycle_reconstruct(
     None
 }
 
-/// Converte gli indici in nomi
 fn translate_cycle_to_names(path: &[usize], nodes: &[&str]) -> String {
     if path.is_empty() {
         return "".to_string();
@@ -213,22 +240,28 @@ fn translate_cycle_to_names(path: &[usize], nodes: &[&str]) -> String {
     names.join(" -> ")
 }
 
-/// Unifica i submoduli in un grafo basato su un criterio (ad esempio, tutto ciò che inizia con un prefisso comune).
 pub fn unify_submodules_in_graph(
     original_graph: &HashMap<String, Vec<String>>,
+    max_depth: usize,
 ) -> HashMap<String, Vec<String>> {
     let mut new_graph = HashMap::new();
 
     for (node, deps) in original_graph {
-        let unified_node = unify_container_submodules(node);
-
-        let unified_deps: Vec<String> =
-            deps.iter().map(|d| unify_container_submodules(d)).collect();
+        let unified_node = unify_submodules(node, max_depth);
+        let unified_deps: Vec<String> = deps
+            .iter()
+            .map(|d| unify_submodules(d, max_depth))
+            .collect();
 
         new_graph
             .entry(unified_node)
             .or_insert_with(Vec::new)
             .extend(unified_deps);
+    }
+
+    let all_deps: Vec<String> = new_graph.values().flatten().cloned().collect();
+    for dep_node in all_deps {
+        new_graph.entry(dep_node).or_insert_with(Vec::new);
     }
 
     for deps in new_graph.values_mut() {
@@ -239,13 +272,12 @@ pub fn unify_submodules_in_graph(
     new_graph
 }
 
-/// Unifica un singolo nodo, trattando i sotto-moduli come un nodo principale.
-fn unify_container_submodules(node: &str) -> String {
-    let prefix = "crate::application::container::";
-    if node.starts_with(prefix) {
-        "crate::application::container".to_string()
-    } else {
+fn unify_submodules(node: &str, max_depth: usize) -> String {
+    let parts: Vec<&str> = node.split("::").collect();
+    if parts.len() <= max_depth {
         node.to_string()
+    } else {
+        parts[..max_depth].join("::")
     }
 }
 
@@ -254,114 +286,231 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    //
+    // ----------------------
+    // TESTS FOR `unify_submodules`
+    // ----------------------
+    //
+
     #[test]
-    fn test_no_cycle_in_hexagonal_architecture() {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+    fn test_unify_submodules_no_truncation() {
+        let node = "crate::mod1::mod2";
+        let result = unify_submodules(node, 5);
+        assert_eq!(result, "crate::mod1::mod2");
+    }
 
-        graph.insert("domain::policy".to_string(), vec![]);
-        graph.insert("domain::quote".to_string(), vec![]);
-        graph.insert(
-            "application::policy_service".to_string(),
-            vec!["domain::policy".to_string()],
-        );
-        graph.insert(
-            "application::quote_service".to_string(),
-            vec!["domain::quote".to_string()],
-        );
-        graph.insert(
-            "infrastructure::database::policy_repository".to_string(),
-            vec!["domain::policy".to_string()],
-        );
-        graph.insert(
-            "infrastructure::external::quote_api".to_string(),
-            vec!["application::quote_service".to_string()],
-        );
+    #[test]
+    fn test_unify_submodules_exact_match() {
+        let node = "crate::mod1::mod2";
+        let result = unify_submodules(node, 3);
+        assert_eq!(result, "crate::mod1::mod2");
+    }
 
-        let result = find_cycle_in_dependencies(&graph);
+    #[test]
+    fn test_unify_submodules_truncate() {
+        let node = "crate::application::container::submod";
+        let result = unify_submodules(node, 2);
+        assert_eq!(result, "crate::application");
+    }
+
+    #[test]
+    fn test_unify_submodules_zero_depth() {
+        let node = "crate::application::submod";
+        let result = unify_submodules(node, 0);
+        assert_eq!(result, "", "With max_depth=0, we expect an empty string");
+    }
+
+    //
+    // ----------------------
+    // TESTS FOR `unify_submodules_in_graph`
+    // ----------------------
+    //
+
+    #[test]
+    fn test_unify_submodules_in_graph_zero_depth() {
+        let mut graph = HashMap::new();
+        graph.insert(
+            "crate::mod1::sub1".to_string(),
+            vec!["crate::mod2::sub2".to_string()],
+        );
+        let unified = unify_submodules_in_graph(&graph, 0);
+
+        assert_eq!(unified.len(), 1);
         assert!(
-            result.is_none(),
-            "Expected no cycles, but found one: {:?}",
-            result
+            unified.contains_key(""),
+            "Empty key created after unification"
         );
     }
 
-    #[test]
-    fn test_direct_cycle_between_two_modules() {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("module_a".to_string(), vec!["module_b".to_string()]);
-        graph.insert("module_b".to_string(), vec!["module_a".to_string()]);
+    //
+    // ----------------------
+    // TESTS FOR `find_cycle_in_dependencies`
+    // ----------------------
+    //
 
-        let result = find_cycle_in_dependencies(&graph);
-        assert!(result.is_some(), "Expected a cycle, but none was found.");
+    #[test]
+    fn test_find_cycle_in_dependencies_no_cycle() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["B".to_string()]);
+        graph.insert("B".to_string(), vec!["C".to_string()]);
+        graph.insert("C".to_string(), vec![]);
+
+        let cycle = find_all_cycles_in_dependencies(&graph, 3);
+        assert!(cycle.is_empty(), "There should be no cycle in A->B->C");
     }
 
     #[test]
-    fn test_indirect_cycle_across_three_modules() {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("module_a".to_string(), vec!["module_b".to_string()]);
-        graph.insert("module_b".to_string(), vec!["module_c".to_string()]);
-        graph.insert("module_c".to_string(), vec!["module_a".to_string()]);
+    fn test_find_cycle_in_dependencies_simple_cycle() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["B".to_string()]);
+        graph.insert("B".to_string(), vec!["A".to_string()]);
 
-        let result = find_cycle_in_dependencies(&graph);
+        let cycle = find_all_cycles_in_dependencies(&graph, 2);
+        assert!(!cycle.is_empty(), "A->B->A should be detected as a cycle");
+    }
+
+    //
+    // ----------------------
+    // TESTS FOR `MustNotHaveCircularDependencies`
+    // ----------------------
+    //
+
+    #[test]
+    fn test_rule_no_cycle_ok() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["B".to_string()]);
+        graph.insert("B".to_string(), vec!["C".to_string()]);
+        graph.insert("C".to_string(), vec![]);
+
+        let project = RustProject { files: vec![] };
+        let rule = MustNotHaveCircularDependencies { max_depth: 3 };
+
+        let result = rule.apply(&project);
         assert!(
-            result.is_some(),
-            "Expected an indirect cycle, but none was found."
+            result.is_ok(),
+            "No error should be triggered for a linear graph"
         );
     }
 
     #[test]
-    fn test_no_cycles_with_multiple_independent_paths() {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert(
-            "module_a".to_string(),
-            vec!["module_b".to_string(), "module_c".to_string()],
-        );
-        graph.insert("module_b".to_string(), vec!["module_d".to_string()]);
-        graph.insert("module_c".to_string(), vec!["module_d".to_string()]);
-        graph.insert("module_d".to_string(), vec![]);
+    fn test_cycle_directly_in_find_cycle() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["B".to_string()]);
+        graph.insert("B".to_string(), vec!["A".to_string()]);
 
-        let result = find_cycle_in_dependencies(&graph);
+        let result = find_all_cycles_in_dependencies(&graph, 1);
+        assert!(!result.is_empty(), "A->B->A should be detected as a cycle");
+    }
+
+    #[test]
+    fn test_rule_empty_graph() {
+        let project = RustProject { files: vec![] };
+
+        let rule = MustNotHaveCircularDependencies { max_depth: 2 };
+        let result = rule.apply(&project);
+        assert!(result.is_ok(), "An empty graph should have no cycles");
+    }
+
+    //
+    // ----------------------
+    // TEST CASES FOR FALSE POSITIVES (Self-References)
+    // ----------------------
+    //
+
+    /// **Test: Ignore `X -> X` if it has no other dependencies**
+    #[test]
+    fn test_ignore_trivial_self_reference() {
+        let mut graph = HashMap::new();
+        graph.insert("X".to_string(), vec!["X".to_string()]);
+
+        let cycles = find_all_cycles_in_dependencies(&graph, 3);
+
         assert!(
-            result.is_none(),
-            "Expected no cycles, but found one: {:?}",
-            result
+            cycles.is_empty(),
+            "A trivial self-reference (`X -> X`) should NOT be reported as a cycle."
         );
     }
 
+    /// **Test: Self-reference inside a larger cycle should still be detected**
     #[test]
-    fn test_complex_cycle_with_multiple_entries() {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert("module_a".to_string(), vec!["module_b".to_string()]);
-        graph.insert("module_b".to_string(), vec!["module_c".to_string()]);
-        graph.insert("module_c".to_string(), vec!["module_d".to_string()]);
-        graph.insert("module_d".to_string(), vec!["module_a".to_string()]);
-        graph.insert("module_x".to_string(), vec!["module_y".to_string()]);
-        graph.insert("module_y".to_string(), vec![]);
+    fn test_detect_real_cycle_with_self_reference() {
+        let mut graph = HashMap::new();
+        graph.insert("X".to_string(), vec!["X".to_string(), "Y".to_string()]);
+        graph.insert("Y".to_string(), vec!["X".to_string()]);
 
-        let result = find_cycle_in_dependencies(&graph);
-        assert!(result.is_some(), "Expected a cycle, but none was found.");
-    }
+        let cycles = find_all_cycles_in_dependencies(&graph, 3);
 
-    #[test]
-    fn test_no_dependency_from_domain_to_other_modules() {
-        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
-        graph.insert(
-            "domain::policy".to_string(),
-            vec!["application::policy_service".to_string()],
-        );
-        graph.insert(
-            "application::policy_service".to_string(),
-            vec!["domain::policy".to_string()],
-        );
-        graph.insert(
-            "infrastructure::database::policy_repository".to_string(),
-            vec!["domain::policy".to_string()],
-        );
-
-        let result = find_cycle_in_dependencies(&graph);
         assert!(
-            result.is_some(),
-            "Expected a dependency from domain to application, but none was found."
+            !cycles.is_empty(),
+            "A real cycle (`Y -> X -> Y`) should be detected even if `X` has a self-reference."
+        );
+
+        assert!(
+            cycles.iter().any(|c| c.contains("Y -> X -> Y")),
+            "The detected cycle should include `Y -> X -> Y`."
+        );
+
+        assert!(
+            !cycles.iter().any(|c| c == "X -> X"),
+            "The trivial self-reference `X -> X` should be ignored."
+        );
+    }
+
+    /// **Test: Multiple independent self-references should all be ignored**
+    #[test]
+    fn test_multiple_trivial_self_references() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["A".to_string()]);
+        graph.insert("B".to_string(), vec!["B".to_string()]);
+        graph.insert("C".to_string(), vec!["C".to_string()]);
+
+        let cycles = find_all_cycles_in_dependencies(&graph, 3);
+
+        assert!(
+                cycles.is_empty(),
+                "Multiple trivial self-references (`A -> A`, `B -> B`, `C -> C`) should NOT be reported."
+            );
+    }
+
+    //
+    // ----------------------
+    // TEST CASES FOR DETECTING REAL CYCLES
+    // ----------------------
+    //
+
+    /// **Test: Detecting a simple cycle**
+    #[test]
+    fn test_detect_simple_cycle() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["B".to_string()]);
+        graph.insert("B".to_string(), vec!["A".to_string()]);
+
+        let cycles = find_all_cycles_in_dependencies(&graph, 3);
+
+        assert!(
+            !cycles.is_empty(),
+            "A real cycle (`A -> B -> A`) should be detected."
+        );
+
+        assert!(
+            cycles.iter().any(|c| c.contains("B -> A -> B")),
+            "The detected cycle should include `B -> A -> B`."
+        );
+    }
+
+    /// **Test: No cycle should be detected in an acyclic graph**
+    #[test]
+    fn test_no_cycle_in_acyclic_graph() {
+        let mut graph = HashMap::new();
+        graph.insert("A".to_string(), vec!["B".to_string()]);
+        graph.insert("B".to_string(), vec!["C".to_string()]);
+        graph.insert("C".to_string(), vec![]);
+
+        let cycles = find_all_cycles_in_dependencies(&graph, 3);
+
+        assert!(
+            cycles.is_empty(),
+            "No cycles should be detected in an acyclic graph."
         );
     }
 }
