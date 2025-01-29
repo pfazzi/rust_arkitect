@@ -1,7 +1,8 @@
 mod dependency_parsing;
-pub mod dsl;
 mod engine;
+
+pub mod builtin_rules;
+pub mod dsl;
 pub mod rule;
-pub mod rules;
 pub mod rust_file;
 pub mod rust_project;

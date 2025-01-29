@@ -1,9 +1,9 @@
+use crate::builtin_rules::may_depend_on::MayDependOnRule;
+use crate::builtin_rules::must_not_depend_on::MustNotDependOnRule;
+use crate::builtin_rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
+use crate::builtin_rules::must_not_have_circular_dependencies::MustNotHaveCircularDependencies;
 use crate::dsl::arkitect::Rules;
 use crate::rule::Rule;
-use crate::rules::may_depend_on::MayDependOnRule;
-use crate::rules::must_not_depend_on::MustNotDependOnRule;
-use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
-use crate::rules::must_not_have_circular_dependencies::MustNotHaveCircularDependencies;
 use std::marker::PhantomData;
 
 pub struct Begin;

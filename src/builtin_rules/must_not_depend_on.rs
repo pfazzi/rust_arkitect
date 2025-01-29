@@ -1,5 +1,5 @@
+use crate::builtin_rules::utils::IsChild;
 use crate::rule::Rule;
-use crate::rules::utils::IsChild;
 use crate::rust_file::RustFile;
 use ansi_term::Color::RGB;
 use ansi_term::Style;

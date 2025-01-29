@@ -1,5 +1,5 @@
+use crate::builtin_rules::utils::IsChild;
 use crate::rule::Rule;
-use crate::rules::utils::IsChild;
 use crate::rust_file::RustFile;
 use ansi_term::Color::RGB;
 use ansi_term::Style;
@@ -67,7 +67,7 @@ impl Rule for MustNotDependOnAnythingRule {
 
 #[cfg(test)]
 mod tests {
-    use crate::rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
+    use crate::builtin_rules::must_not_depend_on_anything::MustNotDependOnAnythingRule;
 
     #[test]
     fn test_display_must_not_depend_on_anything_no_dependencies() {
