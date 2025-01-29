@@ -12,6 +12,9 @@ fn test_architectural_rules() {
 
     #[rustfmt::skip]
     let rules = ArchitecturalRules::define()
+        .rules_for_project()
+            .it_must_not_have_circular_dependencies(999)
+
         .rules_for_module("rust_arkitect::dsl")
             .it_may_depend_on(&[
                 "rust_arkitect::engine",

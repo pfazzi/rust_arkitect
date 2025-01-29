@@ -251,6 +251,7 @@ pub fn unify_submodules_in_graph(
         let unified_deps: Vec<String> = deps
             .iter()
             .map(|d| unify_submodules(d, max_depth))
+            .filter(|d| d != &unified_node)
             .collect();
 
         new_graph
