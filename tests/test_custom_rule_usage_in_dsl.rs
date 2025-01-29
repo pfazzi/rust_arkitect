@@ -31,10 +31,10 @@ impl Rule for TestRule {
 #[cfg(test)]
 mod tests {
     use crate::TestRule;
+    use rust_arkitect::builtin_rules::must_not_depend_on::MustNotDependOnRule;
     use rust_arkitect::dsl::arkitect::{Arkitect, Rules};
     use rust_arkitect::dsl::project::Project;
     use rust_arkitect::rule::Rule;
-    use rust_arkitect::rules::must_not_depend_on::MustNotDependOnRule;
 
     #[test]
     fn test_custom_rule_execution() {

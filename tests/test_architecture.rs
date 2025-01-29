@@ -18,7 +18,7 @@ fn test_architectural_rules() {
         .rules_for_module("rust_arkitect::dsl")
             .it_may_depend_on(&[
                 "rust_arkitect::engine",
-                "rust_arkitect::rules",
+                "rust_arkitect::builtin_rules",
                 "rust_arkitect::rule",
                 "rust_arkitect::rust_file",
                 "std::collections",
@@ -42,7 +42,7 @@ fn test_architectural_rules() {
                 "toml"
             ])
 
-        .rules_for_module("rust_arkitect::rules")
+        .rules_for_module("rust_arkitect::builtin_rules")
             .it_may_depend_on(&[
                 "rust_arkitect::rust_file",
                 "rust_arkitect::rust_project",
